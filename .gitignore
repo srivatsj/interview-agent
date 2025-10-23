@@ -33,11 +33,15 @@ htmlcov/
 .tox/
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
 *~
+
+# VS Code - allow settings, exclude workspace files
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 
 # Environment variables
 .env

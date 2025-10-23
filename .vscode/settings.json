@@ -1,0 +1,23 @@
+{
+  "files.exclude": {
+    "**/.venv": true,
+    "**/*.egg-info": true,
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.pytest_cache": true,
+    "**/.mypy_cache": true,
+    "**/.ruff_cache": true
+  },
+  "search.exclude": {
+    "**/.venv": true,
+    "**/*.egg-info": true,
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.ruff_cache": true
+  },
+  "python.analysis.exclude": [
+    "**/.venv",
+    "**/*.egg-info",
+    "**/__pycache__"
+  ]
+}
