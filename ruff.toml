@@ -33,6 +33,9 @@ line-ending = "auto"
 # Enable pycodestyle (E, W), Pyflakes (F), and isort (I)
 select = ["E", "F", "I", "W"]
 
+# E402: Module level import not at top of file - enforce imports always at top
+extend-select = ["E402"]
+
 # Ignore specific rules
 ignore = []
 

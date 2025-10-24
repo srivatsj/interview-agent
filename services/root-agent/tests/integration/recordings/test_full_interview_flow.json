@@ -1,0 +1,116 @@
+{
+  "test_name": "test_full_interview_flow",
+  "num_responses": 8,
+  "responses": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "Hello! I can help you practice for interviews. Which company (Amazon, Google, or Apple) and what type of interview (system design, coding, or behavioral) would you like to focus on today?"
+          }
+        ]
+      },
+      "finish_reason": "STOP",
+      "turn_complete": null
+    },
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "function_call": {
+              "name": "set_routing_decision",
+              "args": {
+                "company": "amazon",
+                "interview_type": "system_design"
+              }
+            }
+          }
+        ]
+      },
+      "finish_reason": "STOP",
+      "turn_complete": null
+    },
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "Great! We'll focus on Amazon system design interviews. I've saved your preferences. Let's get started!"
+          }
+        ]
+      },
+      "finish_reason": "STOP",
+      "turn_complete": null
+    },
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "Hello! Thanks for joining today's Amazon system design interview. I'm excited to work through a problem with you. Before we start, I'd love to learn a bit about your background. What's your name?"
+          }
+        ]
+      },
+      "finish_reason": "STOP",
+      "turn_complete": null
+    },
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "Great! To kick things off, could you please tell me your name?"
+          }
+        ]
+      },
+      "finish_reason": "STOP",
+      "turn_complete": null
+    },
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "function_call": {
+              "name": "save_candidate_info",
+              "args": {
+                "domain": "distributed systems and backend",
+                "projects": "real-time messaging system and API gateway",
+                "years_experience": 5,
+                "name": "Alice"
+              }
+            }
+          }
+        ]
+      },
+      "finish_reason": "STOP",
+      "turn_complete": null
+    },
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "Fantastic, Alice! It's great to hear about your experience in distributed systems and backend, and those projects sound very interesting.\n\nHere's how today's system design interview will work: We'll go through a problem together, covering clarifications, requirements, data modeling, API design, architecture, and then dive deep into specific areas. It's a collaborative discussion \u2013 feel free to ask questions and think out loud. The whole thing takes about 45-60 minutes.\n\nAre you ready to begin?"
+          }
+        ]
+      },
+      "finish_reason": "STOP",
+      "turn_complete": null
+    },
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "Thank you so much for your time today, Alice. That concludes our Amazon system design interview. I really enjoyed our discussion, and I particularly appreciated your structured approach to problem-solving and your strong understanding of distributed systems concepts, drawing from your experience with projects like real-time messaging.\n\nBefore we finish, do you have any questions for me about the next steps in the interview process, the timeline for feedback, the role itself, or Amazon as a company?\n\nIt was a pleasure speaking with you, and I wish you the very best with the remainder of your interview journey. Keep exploring those complex system challenges!"
+          }
+        ]
+      },
+      "finish_reason": "STOP",
+      "turn_complete": null
+    }
+  ]
+}

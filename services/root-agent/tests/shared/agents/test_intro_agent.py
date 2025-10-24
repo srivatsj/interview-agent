@@ -12,7 +12,8 @@ class TestSaveCandidateInfo:
     def test_saves_to_session_state(self):
         """Test candidate info is saved to session state"""
         ctx = Mock(spec=ToolContext)
-        ctx.session.state = {}
+        # Create a real dict for state
+        ctx.state = {}
 
         result = save_candidate_info(
             tool_context=ctx,
@@ -23,15 +24,15 @@ class TestSaveCandidateInfo:
         )
 
         assert "Candidate info saved" in result
-        assert "candidate_info" in ctx.session.state
-        assert ctx.session.state["candidate_info"]["name"] == "Alice Smith"
-        assert ctx.session.state["candidate_info"]["years_experience"] == 5
-        assert ctx.session.state["candidate_info"]["domain"] == "distributed systems"
+        assert "candidate_info" in ctx.state
+        assert ctx.state["candidate_info"]["name"] == "Alice Smith"
+        assert ctx.state["candidate_info"]["years_experience"] == 5
+        assert ctx.state["candidate_info"]["domain"] == "distributed systems"
 
     def test_validates_experience(self):
         """Test years_experience must be non-negative"""
         ctx = Mock(spec=ToolContext)
-        ctx.session.state = {}
+        ctx.state = {}
 
         try:
             save_candidate_info(

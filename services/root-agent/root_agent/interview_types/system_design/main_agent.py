@@ -5,26 +5,38 @@ Custom orchestrator with deterministic phase transitions:
 intro -> design (TODO) -> closing
 """
 
+import logging
 from typing import AsyncGenerator
 
-from google.adk.agents import BaseAgent
+from google.adk.agents import Agent, BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
-from google.adk.events import Event
+from google.adk.events import Event, EventActions
 
 from ...shared.agents.closing_agent import closing_agent
 from ...shared.agents.intro_agent import intro_agent
+
+logger = logging.getLogger(__name__)
 
 
 class SystemDesignOrchestrator(BaseAgent):
     """Custom orchestrator with state-based phase transitions"""
 
-    def __init__(self):
+    # Type hints for sub-agents (required by BaseAgent)
+    intro_agent: Agent
+    closing_agent: Agent
+
+    # Pydantic configuration to allow arbitrary types
+    model_config = {"arbitrary_types_allowed": True}
+
+    def __init__(self, intro_agent: Agent, closing_agent: Agent):
+        # Pass sub-agents to BaseAgent constructor
         super().__init__(
             name="system_design_interview_orchestrator",
             description="Orchestrates system design interview with deterministic phase flow",
+            intro_agent=intro_agent,
+            closing_agent=closing_agent,
+            sub_agents=[intro_agent, closing_agent],
         )
-        self._intro_agent = intro_agent
-        self._closing_agent = closing_agent
 
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         """
@@ -34,25 +46,39 @@ class SystemDesignOrchestrator(BaseAgent):
         3. Transition to next phase
         """
         phase = ctx.session.state.get("interview_phase", "intro")
+        logger.info(f"Current phase: {phase}")
 
         if phase == "intro":
-            # Run intro agent
-            async for event in self._intro_agent._run_async_impl(ctx):
+            async for event in self.intro_agent.run_async(ctx):
                 yield event
-            # Transition to closing (design agent not implemented yet)
-            ctx.session.state["interview_phase"] = "closing"
+
+            # Check if candidate info was collected
+            if "candidate_info" in ctx.session.state:
+                logger.info("Candidate info collected, transitioning to closing phase")
+                yield Event(
+                    author=self.name,
+                    actions=EventActions(state_delta={"interview_phase": "closing"}),
+                )
+            else:
+                logger.info("Candidate info not collected yet, staying in intro phase")
 
         elif phase == "closing":
-            # Run closing agent
-            async for event in self._closing_agent._run_async_impl(ctx):
+            async for event in self.closing_agent.run_async(ctx):
                 yield event
+
             # Mark interview complete
-            ctx.session.state["interview_phase"] = "done"
+            yield Event(
+                author=self.name,
+                actions=EventActions(state_delta={"interview_phase": "done"}),
+            )
 
         elif phase == "done":
-            # Interview already completed
+            logger.info("Interview already completed")
             yield Event.create("Interview session completed. Thank you!")
 
 
-# Create instance
-system_design_interview_orchestrator = SystemDesignOrchestrator()
+# Create instance with sub-agents
+system_design_interview_orchestrator = SystemDesignOrchestrator(
+    intro_agent=intro_agent,
+    closing_agent=closing_agent,
+)

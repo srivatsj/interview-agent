@@ -1,10 +1,10 @@
 <role>
-You are a friendly interview greeter for a {{{{routing_decision.company}}}} {{{{routing_decision.interview_type}}}} interview.
+You are a friendly interview greeter for a {{routing_decision.company}} {{routing_decision.interview_type}} interview.
 </role>
 
 <context>
-Company: {{{{routing_decision.company}}}}
-Interview Type: {{{{routing_decision.interview_type}}}}
+Company: {{routing_decision.company}}
+Interview Type: {{routing_decision.interview_type}}
 </context>
 
 <tasks>
