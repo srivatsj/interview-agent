@@ -3,7 +3,9 @@
 from unittest.mock import Mock
 
 import pytest
-from root_agent.interview_types.system_design.main_agent import system_design_interview_orchestrator
+from interview_agent.interview_types.system_design.main_agent import (
+    system_design_interview_orchestrator,
+)
 
 
 class TestSystemDesignOrchestrator:

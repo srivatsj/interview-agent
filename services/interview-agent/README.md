@@ -1,4 +1,4 @@
-# Root Agent - Interview Router
+# Interview Agent - Interview Router
 
 Custom agent built with Google ADK for routing interview practice sessions.
 
@@ -12,8 +12,8 @@ Custom agent built with Google ADK for routing interview practice sessions.
 ### Installation
 
 ```bash
-# Clone and navigate to root-agent directory
-cd services/root-agent
+# Clone and navigate to interview agent directory
+cd services/interview-agent
 
 # Create virtual environment and install dependencies
 uv venv
@@ -36,7 +36,7 @@ Unit tests use mocks and don't require API calls. They run quickly and test indi
 pytest tests/ --ignore=tests/integration/
 
 # Run specific unit test files
-pytest tests/test_root_agent.py -v
+pytest tests/test_agent.py -v
 pytest tests/shared/agents/test_intro_agent.py -v
 pytest tests/interview_types/system_design/test_main_agent.py -v
 ```
@@ -106,8 +106,14 @@ The record/replay pattern uses `tests/integration/llm_recorder.py`:
 # Run all tests (unit + integration in replay mode)
 pytest -v
 
-# See test coverage
-pytest --cov=root_agent --cov-report=term-missing
+# Run unit tests only with coverage
+pytest tests/ --ignore=tests/integration/ --cov=interview_agent --cov-report=term-missing
+
+# See test coverage for entire module
+pytest --cov=interview_agent --cov-report=term-missing
+
+# See test coverage for agent.py only
+pytest tests/test_agent.py --cov=interview_agent.agent --cov-report=term-missing
 ```
 
 ## Code Quality
@@ -126,7 +132,7 @@ pre-commit install
 ## Structure
 
 ```
-root_agent/
+interview_agent/
 ├── shared/
 │   ├── agents/          # Reusable agents (intro, closing)
 │   ├── prompts/         # External prompt templates
@@ -134,7 +140,7 @@ root_agent/
 │   └── constants.py     # Shared constants
 ├── interview_types/
 │   └── system_design/   # System design interview orchestrator
-└── root_agent.py        # Custom BaseAgent with deterministic routing
+└── agent.py             # Custom BaseAgent with deterministic routing
 
 tests/
 ├── integration/

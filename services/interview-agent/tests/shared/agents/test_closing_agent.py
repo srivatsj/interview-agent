@@ -3,7 +3,7 @@
 from unittest.mock import Mock
 
 from google.adk.agents.readonly_context import ReadonlyContext
-from root_agent.shared.agents.closing_agent import closing_agent, get_closing_instruction
+from interview_agent.shared.agents.closing_agent import closing_agent, get_closing_instruction
 
 
 class TestClosingAgent:
