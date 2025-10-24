@@ -8,7 +8,7 @@ intro -> design (TODO) -> closing
 import logging
 from typing import AsyncGenerator
 
-from google.adk.agents import Agent, BaseAgent
+from google.adk.agents import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event, EventActions
 
@@ -22,13 +22,13 @@ class SystemDesignOrchestrator(BaseAgent):
     """Custom orchestrator with state-based phase transitions"""
 
     # Type hints for sub-agents (required by BaseAgent)
-    intro_agent: Agent
-    closing_agent: Agent
+    intro_agent: BaseAgent
+    closing_agent: BaseAgent
 
     # Pydantic configuration to allow arbitrary types
     model_config = {"arbitrary_types_allowed": True}
 
-    def __init__(self, intro_agent: Agent, closing_agent: Agent):
+    def __init__(self, intro_agent: BaseAgent, closing_agent: BaseAgent):
         # Pass sub-agents to BaseAgent constructor
         super().__init__(
             name="system_design_interview_orchestrator",
@@ -74,7 +74,6 @@ class SystemDesignOrchestrator(BaseAgent):
 
         elif phase == "done":
             logger.info("Interview already completed")
-            yield Event.create("Interview session completed. Thank you!")
 
 
 # Create instance with sub-agents
