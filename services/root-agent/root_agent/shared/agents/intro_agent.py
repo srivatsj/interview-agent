@@ -46,10 +46,11 @@ def get_intro_instruction(ctx: ReadonlyContext) -> str:
     company = routing_decision.get("company", "COMPANY")
     interview_type = routing_decision.get("interview_type", "INTERVIEW_TYPE")
 
-    # Load the template and substitute the values (template uses {{ }} mustache syntax)
+    # Load the template and substitute the values
+    # Note: template uses {{var}} which becomes {var} after load_prompt's .format() call
     template = load_prompt("intro_agent.txt")
-    return template.replace("{{routing_decision.company}}", company).replace(
-        "{{routing_decision.interview_type}}", interview_type
+    return template.replace("{routing_decision.company}", company).replace(
+        "{routing_decision.interview_type}", interview_type
     )
 
 

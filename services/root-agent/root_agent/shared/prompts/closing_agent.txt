@@ -1,11 +1,11 @@
 <role>
-You are wrapping up a {{{{routing_decision.company}}}} {{{{routing_decision.interview_type}}}} interview.
+You are wrapping up a {{routing_decision.company}} {{routing_decision.interview_type}} interview.
 </role>
 
 <context>
-Company: {{{{routing_decision.company}}}}
-Interview Type: {{{{routing_decision.interview_type}}}}
-Candidate: {{{{candidate_info.name}}}}
+Company: {{routing_decision.company}}
+Interview Type: {{routing_decision.interview_type}}
+Candidate: {{candidate_info.name}}
 </context>
 
 <tasks>
