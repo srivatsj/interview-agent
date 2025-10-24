@@ -1,5 +1,6 @@
 """Unit tests for RootCustomAgent"""
 
+from typing import ClassVar
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -60,86 +61,87 @@ class TestSetRoutingDecision:
 class TestRootCustomAgentDelegation:
     """Test RootCustomAgent delegates to correct orchestrator"""
 
-    def test_system_design_routing_check(self):
-        """Test agent has system_design orchestrator and reads routing correctly"""
+    @pytest.mark.asyncio
+    async def test_delegates_to_system_design_orchestrator(self):
+        """Test _run_async_impl delegates to system_design orchestrator - NO LLM CALLS"""
         routing_agent = Agent(
-            model="gemini-2.0-flash-exp",
-            name="test_routing",
-            description="Test",
+            model="dummy-model-no-llm", name="test_routing", tools=[set_routing_decision]
         )
 
-        class TestOrchestrator(BaseAgent):
+        # Create custom orchestrator that tracks calls
+        class MockOrchestrator(BaseAgent):
             model_config = {"arbitrary_types_allowed": True}
+            called: ClassVar[bool] = False
 
             def __init__(self):
-                super().__init__(name="test_orch", description="Test")
+                super().__init__(name="mock_orchestrator", description="Mock")
 
-            async def _run_async_impl(self, ctx):
-                yield Mock()
+            async def run_async(self, _ctx):
+                MockOrchestrator.called = True
+                # Empty async generator
+                if False:
+                    yield
 
-        orchestrator = TestOrchestrator()
+        orchestrator = MockOrchestrator()
 
         agent = RootCustomAgent(
             routing_agent=routing_agent, system_design_orchestrator=orchestrator
         )
 
-        # Verify agent is properly initialized with sub-agents
-        assert agent.system_design_orchestrator is not None
-        assert agent.routing_agent is not None
-
-        # Verify routing_decision logic by testing state reads
+        # Create context with system_design routing pre-set (no LLM call needed)
         ctx = create_mock_context(
             {"routing_decision": {"company": "google", "interview_type": "system_design"}}
         )
 
-        routing_decision = ctx.session.state.get("routing_decision")
-        assert routing_decision is not None
-        interview_type = routing_decision.get("interview_type")
+        # Execute _run_async_impl directly
+        async for _ in agent._run_async_impl(ctx):
+            pass
 
-        # Verify the logic that determines delegation path (root_agent.py:114-119)
-        assert interview_type == "system_design", "Should route to system_design"
-        # When interview_type is "system_design", agent delegates to orchestrator
+        # Verify orchestrator was invoked
+        assert MockOrchestrator.called, "Orchestrator should have been called"
 
     @pytest.mark.asyncio
-    async def test_routing_decision_state_logic(self):
-        """Test agent correctly reads routing_decision from state"""
-        routing_agent = Agent(
-            model="gemini-2.0-flash-exp",
-            name="test_routing",
-            description="Test",
-        )
+    async def test_run_async_coding_logs_warning(self, caplog):
+        """Test coding interview logs warning - NO LLM CALLS"""
+        routing_agent = Agent(model="dummy-model-no-llm", name="test_routing")
+        orchestrator = BaseAgent(name="mock", description="Mock")
 
-        class TestOrchestrator(BaseAgent):
-            model_config = {"arbitrary_types_allowed": True}
-
-            def __init__(self):
-                super().__init__(name="test_orch", description="Test")
-
-            async def _run_async_impl(self, ctx):
-                from google.adk.events import Event
-
-                yield Event.create("ORCHESTRATOR_CALLED")
-
-        orchestrator = TestOrchestrator()
-
-        _agent = RootCustomAgent(
+        agent = RootCustomAgent(
             routing_agent=routing_agent, system_design_orchestrator=orchestrator
         )
 
-        # Test 1: No routing_decision in state
-        ctx_empty = create_mock_context({})
-        routing_decision_empty = ctx_empty.session.state.get("routing_decision")
-        assert routing_decision_empty is None, "Should return None when no routing_decision"
-
-        # Test 2: routing_decision exists in state
-        ctx_with_routing = create_mock_context(
-            {"routing_decision": {"company": "amazon", "interview_type": "system_design"}}
+        # Pre-set coding routing (no LLM call)
+        ctx = create_mock_context(
+            {"routing_decision": {"company": "google", "interview_type": "coding"}}
         )
-        routing_decision = ctx_with_routing.session.state.get("routing_decision")
-        assert routing_decision is not None, "Should find routing_decision"
-        assert routing_decision["interview_type"] == "system_design"
-        assert routing_decision["company"] == "amazon"
 
-        # Test 3: Verify interview_type extraction logic
-        interview_type = routing_decision.get("interview_type")
-        assert interview_type == "system_design", "Should extract correct interview_type"
+        # Run agent
+        async for _ in agent._run_async_impl(ctx):
+            pass
+
+        # Check for warning log
+        assert any("Coding interviews not yet implemented" in rec.message for rec in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_run_async_behavioral_logs_warning(self, caplog):
+        """Test behavioral interview logs warning - NO LLM CALLS"""
+        routing_agent = Agent(model="dummy-model-no-llm", name="test_routing")
+        orchestrator = BaseAgent(name="mock", description="Mock")
+
+        agent = RootCustomAgent(
+            routing_agent=routing_agent, system_design_orchestrator=orchestrator
+        )
+
+        # Pre-set behavioral routing (no LLM call)
+        ctx = create_mock_context(
+            {"routing_decision": {"company": "apple", "interview_type": "behavioral"}}
+        )
+
+        # Run agent
+        async for _ in agent._run_async_impl(ctx):
+            pass
+
+        # Check for warning log
+        assert any(
+            "Behavioral interviews not yet implemented" in rec.message for rec in caplog.records
+        )

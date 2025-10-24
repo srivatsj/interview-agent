@@ -118,9 +118,9 @@ class RootCustomAgent(BaseAgent):
                 async for event in self.system_design_orchestrator.run_async(ctx):
                     yield event
             elif interview_type == "coding":
-                yield Event.create("Coding interviews coming soon. Try system_design!")
+                logger.warning("Coding interviews not yet implemented")
             elif interview_type == "behavioral":
-                yield Event.create("Behavioral interviews coming soon. Try system_design!")
+                logger.warning("Behavioral interviews not yet implemented")
         else:
             logger.warning("No routing decision found after routing agent")
 
