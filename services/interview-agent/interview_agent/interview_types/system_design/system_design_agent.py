@@ -9,6 +9,7 @@ from google.adk.agents import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event, EventActions
 
+from .companies.amazon_tools import AmazonSystemDesignTools
 from .phase_agent import PhaseAgent
 
 logger = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ class SystemDesignAgent(BaseAgent):
         tools = self._get_company_tools(company)
 
         # Fetch phases from tools
-        phases = self._fetch_phases()
+        phases = tools.get_phases()
 
         # Create phase agent
         phase_agent = PhaseAgent(tools)
@@ -52,28 +53,12 @@ class SystemDesignAgent(BaseAgent):
         logger.info(f"Loading tools for company: {company}")
 
         if company == "amazon":
-            # TODO: Import and instantiate company-specific tools
-            # from .companies.amazon_tools import AmazonSystemDesignTools
-            # return AmazonSystemDesignTools()
-            return None  # Placeholder
+            return AmazonSystemDesignTools()
         elif company == "google":
-            return None  # Placeholder
+            # TODO: Implement GoogleSystemDesignTools
+            raise NotImplementedError(f"Tools for {company} not yet implemented")
         else:
             raise ValueError(f"Unknown company: {company}")
-
-    def _fetch_phases(self) -> list[dict]:
-        """Fetch interview phases from tools"""
-        logger.info("Fetching interview phases")
-
-        # TODO: Call tools.get_phases() synchronously
-        # Placeholder phases for now
-        return [
-            {"id": "problem_clarification", "name": "Problem Clarification"},
-            {"id": "requirements", "name": "Requirements"},
-            {"id": "data_design", "name": "Data Design"},
-            {"id": "api_design", "name": "API Design"},
-            {"id": "hld", "name": "High Level Design"},
-        ]
 
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         """Orchestrate interview phases"""

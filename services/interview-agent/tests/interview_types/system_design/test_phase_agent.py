@@ -4,6 +4,7 @@ from typing import ClassVar
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+
 from interview_agent.interview_types.system_design.phase_agent import PhaseAgent
 
 

@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+
 from interview_agent.interview_types.system_design.system_design_agent import (
     SystemDesignAgent,
 )
@@ -40,10 +41,9 @@ class TestSystemDesignAgentInitialization:
 
     def test_valid_company_google(self):
         """Test initialization with valid company 'google'"""
-        agent = SystemDesignAgent(company="google")
-
-        assert agent.name == "google_system_design_orchestrator"
-        assert agent.phases is not None
+        # Google tools not yet implemented
+        with pytest.raises(NotImplementedError, match="Tools for google not yet implemented"):
+            SystemDesignAgent(company="google")
 
     def test_invalid_company_raises_error(self):
         """Test initialization with invalid company raises ValueError"""
