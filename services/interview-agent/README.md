@@ -114,6 +114,8 @@ pytest --cov=interview_agent --cov-report=term-missing
 
 # See test coverage for agent.py only
 pytest tests/test_agent.py --cov=interview_agent.agent --cov-report=term-missing
+
+pytest tests/interview_types/system_design/test_phase_agent.py --cov=interview_agent.interview_types.system_design.phase_agent --cov-report=term-missing
 ```
 
 ## Code Quality
