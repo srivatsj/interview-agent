@@ -54,9 +54,10 @@ class TestSystemDesignAgentInitialization:
         """Test phases are loaded during initialization"""
         agent = SystemDesignAgent(company="amazon")
 
-        # Verify placeholder phases
-        assert len(agent.phases) == 5
-        assert agent.phases[0]["id"] == "problem_clarification"
+        # Verify all 6 phases loaded (including get_problem)
+        assert len(agent.phases) == 6
+        assert agent.phases[0]["id"] == "get_problem"
+        assert agent.phases[1]["id"] == "problem_clarification"
         assert agent.phases[-1]["id"] == "hld"
 
 
@@ -75,10 +76,13 @@ class TestSystemDesignAgentOrchestration:
         async for event in agent._run_async_impl(ctx):
             events.append(event)
 
-        # Verify phase state was set
-        assert ctx.session.state["current_phase"] == "problem_clarification"
-        assert ctx.session.state["phase_complete"] is False
-        assert ctx.session.state["context_shown"] is False
+        # Verify phase state was set via events (not direct state modification)
+        # First event should set phase state
+        assert len(events) >= 1
+        first_event = events[0]
+        assert first_event.actions.state_delta["current_phase"] == "get_problem"
+        assert first_event.actions.state_delta["current_phase_idx"] == 0
+        assert first_event.actions.state_delta["phase_complete"] is False
 
     @pytest.mark.asyncio
     async def test_transitions_to_next_phase(self):
@@ -105,8 +109,8 @@ class TestSystemDesignAgentOrchestration:
         """Test orchestrator completes when phase_idx >= num_phases"""
         agent = SystemDesignAgent(company="amazon")
 
-        # Set phase index beyond last phase
-        ctx = create_mock_context({"current_phase_idx": 5})
+        # Set phase index beyond last phase (6 phases total, so idx 6 is complete)
+        ctx = create_mock_context({"current_phase_idx": 6})
 
         events = []
         async for event in agent._run_async_impl(ctx):
@@ -115,21 +119,24 @@ class TestSystemDesignAgentOrchestration:
         # Verify completion event yielded
         assert len(events) == 1, "Should yield exactly one completion event"
         assert events[0].author == agent.name
+        assert events[0].actions.state_delta.get("interview_phases_complete") is True
 
     @pytest.mark.asyncio
     async def test_runs_middle_phase(self):
         """Test orchestrator can run middle phases"""
         agent = SystemDesignAgent(company="amazon")
 
-        # Start at middle phase (data_design)
+        # Start at middle phase (requirements is now index 2)
         ctx = create_mock_context({"current_phase_idx": 2})
 
         events = []
         async for event in agent._run_async_impl(ctx):
             events.append(event)
 
-        # Verify correct phase was set
-        assert ctx.session.state["current_phase"] == "data_design"
+        # Verify correct phase was set via events
+        assert len(events) >= 1
+        first_event = events[0]
+        assert first_event.actions.state_delta["current_phase"] == "requirements"
 
 
 class TestSystemDesignAgentStateManagement:
@@ -144,7 +151,6 @@ class TestSystemDesignAgentStateManagement:
             {
                 "current_phase_idx": 1,
                 "phase_complete": True,  # From previous phase
-                "context_shown": True,  # From previous phase
             }
         )
 
@@ -152,7 +158,9 @@ class TestSystemDesignAgentStateManagement:
         async for event in agent._run_async_impl(ctx):
             events.append(event)
 
-        # Verify state was reset for new phase
-        assert ctx.session.state["phase_complete"] is False
-        assert ctx.session.state["context_shown"] is False
-        assert ctx.session.state["current_phase"] == "requirements"
+        # Verify state was reset for new phase via events
+        assert len(events) >= 1
+        first_event = events[0]
+        # New architecture resets phase_complete to False
+        assert first_event.actions.state_delta["phase_complete"] is False
+        assert first_event.actions.state_delta["current_phase"] == "problem_clarification"

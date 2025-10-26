@@ -61,10 +61,10 @@ class SystemDesignAgent(BaseAgent):
             raise ValueError(f"Unknown company: {company}")
 
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
-        """Orchestrate interview phases"""
+        """Orchestrate interview phases with clean phase sequencing"""
         phase_idx = ctx.session.state.get("current_phase_idx", 0)
 
-        # Check if interview complete
+        # Check if all phases complete
         if phase_idx >= len(self.phases):
             logger.info("All interview phases complete")
             yield Event(
@@ -77,16 +77,24 @@ class SystemDesignAgent(BaseAgent):
         current_phase = self.phases[phase_idx]
         logger.info(f"Starting phase {phase_idx + 1}/{len(self.phases)}: {current_phase['name']}")
 
-        ctx.session.state["current_phase"] = current_phase["id"]
-        ctx.session.state["phase_complete"] = False
-        ctx.session.state["context_shown"] = False
+        # Initialize phase state
+        yield Event(
+            author=self.name,
+            actions=EventActions(
+                state_delta={
+                    "current_phase": current_phase["id"],
+                    "current_phase_idx": phase_idx,
+                    "phase_complete": False,
+                }
+            ),
+        )
 
-        # Run phase agent
+        # Run phase agent (loops internally until phase complete)
         async for event in self.phase_agent.run_async(ctx):
             yield event
 
-        # Move to next phase
-        logger.info(f"Phase {current_phase['name']} complete, moving to next")
+        # Phase agent has exited loop - phase is complete
+        logger.info(f"Phase {current_phase['name']} complete, advancing to next phase")
         yield Event(
             author=self.name,
             actions=EventActions(state_delta={"current_phase_idx": phase_idx + 1}),

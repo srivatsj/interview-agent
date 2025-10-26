@@ -14,8 +14,9 @@ class TestAmazonSystemDesignTools:
 
         phases = tools.get_phases()
 
-        assert len(phases) == 5
-        assert phases[0]["id"] == "problem_clarification"
+        assert len(phases) == 6
+        assert phases[0]["id"] == "get_problem"
+        assert phases[1]["id"] == "problem_clarification"
         assert phases[-1]["id"] == "hld"
 
     def test_get_context_for_data_design(self):
@@ -34,6 +35,15 @@ class TestAmazonSystemDesignTools:
         context = tools.get_context("unknown_phase")
 
         assert context == "Discuss system design"
+
+    def test_get_context_for_get_problem(self):
+        """Test get_context returns context for get_problem phase"""
+        tools = AmazonSystemDesignTools()
+
+        context = tools.get_context("get_problem")
+
+        assert "present" in context.lower()
+        assert "problem" in context.lower()
 
     def test_evaluate_with_good_coverage(self):
         """Test evaluate returns next_phase with good keyword coverage"""
