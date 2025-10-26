@@ -14,28 +14,28 @@ from ...shared.prompts.prompt_loader import load_prompt
 logger = logging.getLogger(__name__)
 
 
-def mark_phase_complete(tool_context: ToolContext) -> str:
-    """Mark the current phase as complete.
-
-    Use this when the candidate has adequately covered the phase topics.
-
-    Args:
-        tool_context: Tool execution context
-
-    Returns:
-        Confirmation message
-    """
-    tool_context.state["phase_complete"] = True
-    phase_id = tool_context.state.get("current_phase", "unknown")
-    logger.info(f"Phase {phase_id} marked complete")
-    return f"Phase {phase_id} marked complete. Moving to next phase."
-
-
 class PhaseAgent(Agent):
     """Generic phase agent that conducts one interview phase with LLM"""
 
     # Pydantic configuration to allow extra fields
     model_config = {"extra": "allow"}
+
+    @staticmethod
+    def mark_phase_complete(tool_context: ToolContext) -> str:
+        """Mark the current phase as complete.
+
+        Use this when the candidate has adequately covered the phase topics.
+
+        Args:
+            tool_context: Tool execution context
+
+        Returns:
+            Confirmation message
+        """
+        tool_context.state["phase_complete"] = True
+        phase_id = tool_context.state.get("current_phase", "unknown")
+        logger.info(f"Phase {phase_id} marked complete")
+        return f"Phase {phase_id} marked complete. Moving to next phase."
 
     def __init__(self, tool_provider):
         """
@@ -46,7 +46,7 @@ class PhaseAgent(Agent):
             model=MODEL_NAME,
             name="phase_agent",
             description="Conducts a single interview phase with multi-turn conversation",
-            tools=[mark_phase_complete],
+            tools=[PhaseAgent.mark_phase_complete],
             instruction=self._get_phase_instruction,
         )
         self.tool_provider = tool_provider

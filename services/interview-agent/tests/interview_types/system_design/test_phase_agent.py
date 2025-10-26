@@ -1,9 +1,6 @@
 """Tests for PhaseAgent"""
 
-from interview_agent.interview_types.system_design.phase_agent import (
-    PhaseAgent,
-    mark_phase_complete,
-)
+from interview_agent.interview_types.system_design.phase_agent import PhaseAgent
 from interview_agent.interview_types.system_design.tools.amazon_tools import (
     AmazonSystemDesignTools,
 )
@@ -35,7 +32,7 @@ class TestMarkPhaseCompleteTool:
     def test_marks_phase_complete_in_state(self):
         """Test mark_phase_complete sets phase_complete flag"""
         ctx = MockToolContext({"current_phase": "data_design"})
-        result = mark_phase_complete(ctx)
+        result = PhaseAgent.mark_phase_complete(ctx)
 
         assert ctx.state["phase_complete"] is True
         assert "marked complete" in result.lower()
@@ -43,7 +40,7 @@ class TestMarkPhaseCompleteTool:
     def test_returns_confirmation_message(self):
         """Test mark_phase_complete returns confirmation"""
         ctx = MockToolContext({"current_phase": "requirements"})
-        result = mark_phase_complete(ctx)
+        result = PhaseAgent.mark_phase_complete(ctx)
 
         assert "requirements" in result.lower()
         assert "complete" in result.lower()
@@ -51,7 +48,7 @@ class TestMarkPhaseCompleteTool:
     def test_handles_unknown_phase(self):
         """Test mark_phase_complete handles missing current_phase"""
         ctx = MockToolContext({})
-        result = mark_phase_complete(ctx)
+        result = PhaseAgent.mark_phase_complete(ctx)
 
         # Should still set phase_complete and return message
         assert ctx.state["phase_complete"] is True

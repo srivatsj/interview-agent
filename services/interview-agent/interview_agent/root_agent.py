@@ -25,50 +25,6 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 
-# Define the routing decision tool
-def set_routing_decision(company: str, interview_type: str, tool_context: ToolContext) -> str:
-    """Save the routing decision to session state.
-
-    Use this when you've determined which company and interview type the user wants.
-
-    Args:
-        company: The company (amazon, google, or apple)
-        interview_type: The interview type (system_design, coding, or behavioral)
-
-    Returns:
-        Confirmation message
-    """
-    # Validate company
-    if company.lower() not in SUPPORTED_COMPANIES:
-        companies = ", ".join(SUPPORTED_COMPANIES)
-        return f"Error: Invalid company '{company}'. Must be one of: {companies}"
-
-    # Validate interview type
-    if interview_type.lower() not in SUPPORTED_INTERVIEW_TYPES:
-        types = ", ".join(SUPPORTED_INTERVIEW_TYPES)
-        return f"Error: Invalid interview type '{interview_type}'. Must be one of: {types}"
-
-    routing_decision = RoutingDecision(
-        company=company.lower(), interview_type=interview_type.lower(), confidence=1.0
-    )
-
-    # Update state via ToolContext.state (ADK will automatically handle EventActions.state_delta)
-    tool_context.state["routing_decision"] = routing_decision.model_dump()
-    logger.info(f"Routing decision saved: {company.lower()} {interview_type.lower()}")
-
-    return f"Routing saved: {company.lower()} {interview_type.lower()}"
-
-
-# Create the routing agent at module level
-routing_agent = Agent(
-    model=MODEL_NAME,
-    name="routing_conversation",
-    description="Asks user for company and interview type preferences",
-    tools=[set_routing_decision],
-    instruction=load_prompt("routing_agent.txt"),
-)
-
-
 class RootCustomAgent(BaseAgent):
     """Custom agent with deterministic delegation after tool-based routing."""
 
@@ -79,11 +35,53 @@ class RootCustomAgent(BaseAgent):
     # Pydantic configuration to allow arbitrary types
     model_config = {"arbitrary_types_allowed": True}
 
+    @staticmethod
+    def set_routing_decision(company: str, interview_type: str, tool_context: ToolContext) -> str:
+        """Save the routing decision to session state.
+
+        Use this when you've determined which company and interview type the user wants.
+
+        Args:
+            company: The company (amazon, google, or apple)
+            interview_type: The interview type (system_design, coding, or behavioral)
+
+        Returns:
+            Confirmation message
+        """
+        # Validate company
+        if company.lower() not in SUPPORTED_COMPANIES:
+            companies = ", ".join(SUPPORTED_COMPANIES)
+            return f"Error: Invalid company '{company}'. Must be one of: {companies}"
+
+        # Validate interview type
+        if interview_type.lower() not in SUPPORTED_INTERVIEW_TYPES:
+            types = ", ".join(SUPPORTED_INTERVIEW_TYPES)
+            return f"Error: Invalid interview type '{interview_type}'. Must be one of: {types}"
+
+        routing_decision = RoutingDecision(
+            company=company.lower(), interview_type=interview_type.lower(), confidence=1.0
+        )
+
+        # Update state via ToolContext.state
+        # (ADK will automatically handle EventActions.state_delta)
+        tool_context.state["routing_decision"] = routing_decision.model_dump()
+        logger.info(f"Routing decision saved: {company.lower()} {interview_type.lower()}")
+
+        return f"Routing saved: {company.lower()} {interview_type.lower()}"
+
     def __init__(
         self,
-        routing_agent: Agent,
         system_design_orchestrator: BaseAgent,
     ):
+        # Create the routing agent with the tool
+        routing_agent = Agent(
+            model=MODEL_NAME,
+            name="routing_conversation",
+            description="Asks user for company and interview type preferences",
+            tools=[RootCustomAgent.set_routing_decision],
+            instruction=load_prompt("routing_agent.txt"),
+        )
+
         # Pass sub-agents to BaseAgent constructor
         super().__init__(
             name="interview_router",
@@ -127,6 +125,5 @@ class RootCustomAgent(BaseAgent):
 
 # Create the root agent instance with sub-agents
 root_agent = RootCustomAgent(
-    routing_agent=routing_agent,
     system_design_orchestrator=system_design_interview_orchestrator,
 )

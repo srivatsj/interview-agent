@@ -4,10 +4,10 @@ from typing import ClassVar
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-from google.adk.agents import Agent, BaseAgent
+from google.adk.agents import BaseAgent
 from google.adk.tools import ToolContext
 
-from interview_agent.root import RootCustomAgent, set_routing_decision
+from interview_agent.root_agent import RootCustomAgent
 
 
 def create_mock_context(state=None):
@@ -35,7 +35,7 @@ class TestSetRoutingDecision:
         """Test invalid company returns error"""
         ctx = Mock(spec=ToolContext)
         ctx.state = {}
-        result = set_routing_decision("invalid_company", "system_design", ctx)
+        result = RootCustomAgent.set_routing_decision("invalid_company", "system_design", ctx)
 
         assert "Error: Invalid company" in result
 
@@ -43,7 +43,7 @@ class TestSetRoutingDecision:
         """Test invalid interview type returns error"""
         ctx = Mock(spec=ToolContext)
         ctx.state = {}
-        result = set_routing_decision("google", "invalid_type", ctx)
+        result = RootCustomAgent.set_routing_decision("google", "invalid_type", ctx)
 
         assert "Error: Invalid interview type" in result
 
@@ -52,7 +52,7 @@ class TestSetRoutingDecision:
         ctx = Mock(spec=ToolContext)
         ctx.state = {}
 
-        result = set_routing_decision("google", "system_design", ctx)
+        result = RootCustomAgent.set_routing_decision("google", "system_design", ctx)
 
         assert "Routing saved: google system_design" in result
         assert "routing_decision" in ctx.state
@@ -65,9 +65,6 @@ class TestRootCustomAgentDelegation:
     @pytest.mark.asyncio
     async def test_delegates_to_system_design_orchestrator(self):
         """Test _run_async_impl delegates to system_design orchestrator - NO LLM CALLS"""
-        routing_agent = Agent(
-            model="dummy-model-no-llm", name="test_routing", tools=[set_routing_decision]
-        )
 
         # Create custom orchestrator that tracks calls
         class MockOrchestrator(BaseAgent):
@@ -85,9 +82,7 @@ class TestRootCustomAgentDelegation:
 
         orchestrator = MockOrchestrator()
 
-        agent = RootCustomAgent(
-            routing_agent=routing_agent, system_design_orchestrator=orchestrator
-        )
+        agent = RootCustomAgent(system_design_orchestrator=orchestrator)
 
         # Create context with system_design routing pre-set (no LLM call needed)
         ctx = create_mock_context(
@@ -104,12 +99,9 @@ class TestRootCustomAgentDelegation:
     @pytest.mark.asyncio
     async def test_run_async_coding_logs_warning(self, caplog):
         """Test coding interview logs warning - NO LLM CALLS"""
-        routing_agent = Agent(model="dummy-model-no-llm", name="test_routing")
         orchestrator = BaseAgent(name="mock", description="Mock")
 
-        agent = RootCustomAgent(
-            routing_agent=routing_agent, system_design_orchestrator=orchestrator
-        )
+        agent = RootCustomAgent(system_design_orchestrator=orchestrator)
 
         # Pre-set coding routing (no LLM call)
         ctx = create_mock_context(
@@ -126,12 +118,9 @@ class TestRootCustomAgentDelegation:
     @pytest.mark.asyncio
     async def test_run_async_behavioral_logs_warning(self, caplog):
         """Test behavioral interview logs warning - NO LLM CALLS"""
-        routing_agent = Agent(model="dummy-model-no-llm", name="test_routing")
         orchestrator = BaseAgent(name="mock", description="Mock")
 
-        agent = RootCustomAgent(
-            routing_agent=routing_agent, system_design_orchestrator=orchestrator
-        )
+        agent = RootCustomAgent(system_design_orchestrator=orchestrator)
 
         # Pre-set behavioral routing (no LLM call)
         ctx = create_mock_context(
