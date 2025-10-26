@@ -7,7 +7,7 @@ import pytest
 from google.adk.agents import Agent, BaseAgent
 from google.adk.tools import ToolContext
 
-from interview_agent.agent import RootCustomAgent, set_routing_decision
+from interview_agent.root import RootCustomAgent, set_routing_decision
 
 
 def create_mock_context(state=None):

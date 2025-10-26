@@ -131,6 +131,30 @@ ruff format .
 pre-commit install
 ```
 
+## High-Level Design
+
+Multi-tier agent orchestration with deterministic control flow:
+
+**Agent Hierarchy:**
+```
+RootCustomAgent (root.py)
+  ├─ routing_agent: Collects company/interview type via tools
+  └─ SystemDesignOrchestrator (orchestrator.py)
+      ├─ intro_agent: Welcomes candidate, explains format
+      ├─ SystemDesignAgent (system_design_agent.py): Company-specific orchestrator
+      │   └─ PhaseAgent (phase_agent.py): LLM-driven phase conductor
+      │       └─ CompanyTools (tools/amazon_tools.py): Phase definitions & context
+      └─ closing_agent: Wraps up, provides next steps
+```
+
+**Interview Flow:**
+1. Root agent checks routing state → delegates to routing_agent if missing
+2. Routing agent collects company/type → saves via `set_routing_decision()` tool
+3. Root agent delegates to SystemDesignOrchestrator
+4. Orchestrator runs: intro → design (multi-phase) → closing
+5. Design agent loads company tools → iterates through phases
+6. Phase agent conducts LLM conversation → calls `mark_phase_complete()` when done
+
 ## Structure
 
 ```
@@ -141,8 +165,12 @@ interview_agent/
 │   ├── schemas/         # Pydantic schemas
 │   └── constants.py     # Shared constants
 ├── interview_types/
-│   └── system_design/   # System design interview orchestrator
-└── agent.py             # Custom BaseAgent with deterministic routing
+│   └── system_design/
+│       ├── orchestrator.py      # Main interview orchestrator
+│       ├── system_design_agent.py
+│       ├── phase_agent.py
+│       └── tools/               # Company-specific tools & phases
+└── root.py              # Root agent with deterministic routing
 
 tests/
 ├── integration/
@@ -151,7 +179,10 @@ tests/
 │   └── test_interview_flow.py
 ├── shared/
 │   └── agents/          # Unit tests for shared agents
-└── interview_types/     # Unit tests for interview orchestrators
+└── interview_types/
+    └── system_design/
+        ├── tools/       # Tests for company tools
+        └── ...          # Tests for orchestrators
 ```
 
 ## Features

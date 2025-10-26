@@ -14,7 +14,7 @@ from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event
 from google.adk.tools import ToolContext
 
-from .interview_types.system_design.main_agent import system_design_interview_orchestrator
+from .interview_types.system_design.orchestrator import system_design_interview_orchestrator
 from .shared.constants import MODEL_NAME, SUPPORTED_COMPANIES, SUPPORTED_INTERVIEW_TYPES
 from .shared.prompts.prompt_loader import load_prompt
 from .shared.schemas import RoutingDecision

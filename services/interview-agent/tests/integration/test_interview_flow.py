@@ -16,7 +16,7 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, Part
 
-from interview_agent.agent import root_agent
+from interview_agent.root import root_agent
 
 from .llm_recorder import LLMRecorder
 

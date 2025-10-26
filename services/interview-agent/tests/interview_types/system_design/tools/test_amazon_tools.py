@@ -1,6 +1,6 @@
 """Tests for AmazonSystemDesignTools"""
 
-from interview_agent.interview_types.system_design.companies.amazon_tools import (
+from interview_agent.interview_types.system_design.tools.amazon_tools import (
     AmazonSystemDesignTools,
 )
 

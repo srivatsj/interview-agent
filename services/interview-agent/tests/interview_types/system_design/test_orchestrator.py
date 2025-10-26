@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from google.adk.agents import Agent, BaseAgent
 
-from interview_agent.interview_types.system_design.main_agent import SystemDesignOrchestrator
+from interview_agent.interview_types.system_design.orchestrator import SystemDesignOrchestrator
 
 
 def create_mock_context(state=None):

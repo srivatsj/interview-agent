@@ -9,8 +9,8 @@ from google.adk.agents import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event, EventActions
 
-from .companies.amazon_tools import AmazonSystemDesignTools
 from .phase_agent import PhaseAgent
+from .tools.amazon_tools import AmazonSystemDesignTools
 
 logger = logging.getLogger(__name__)
 

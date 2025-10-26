@@ -1,11 +1,11 @@
 """Tests for PhaseAgent"""
 
-from interview_agent.interview_types.system_design.companies.amazon_tools import (
-    AmazonSystemDesignTools,
-)
 from interview_agent.interview_types.system_design.phase_agent import (
     PhaseAgent,
     mark_phase_complete,
+)
+from interview_agent.interview_types.system_design.tools.amazon_tools import (
+    AmazonSystemDesignTools,
 )
 
 
