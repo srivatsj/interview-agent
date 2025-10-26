@@ -1,62 +1,68 @@
 """
-Phase Agent - Conducts a single interview phase
+Phase Agent - Conducts a single interview phase using LLM
 """
 
 import logging
-from typing import AsyncGenerator
 
-from google.adk.agents import BaseAgent
-from google.adk.agents.invocation_context import InvocationContext
-from google.adk.events import Event, EventActions
+from google.adk.agents import Agent
+from google.adk.agents.readonly_context import ReadonlyContext
+from google.adk.tools import ToolContext
+
+from ...shared.constants import MODEL_NAME
 
 logger = logging.getLogger(__name__)
 
 
-class PhaseAgent(BaseAgent):
-    """Generic phase agent that conducts one interview phase"""
+def mark_phase_complete(tool_context: ToolContext) -> str:
+    """Mark the current phase as complete.
 
-    # Pydantic configuration to allow arbitrary types and extra fields
-    model_config = {"arbitrary_types_allowed": True, "extra": "allow"}
+    Use this when the candidate has adequately covered the phase topics.
+
+    Args:
+        tool_context: Tool execution context
+
+    Returns:
+        Confirmation message
+    """
+    tool_context.state["phase_complete"] = True
+    phase_id = tool_context.state.get("current_phase", "unknown")
+    logger.info(f"Phase {phase_id} marked complete")
+    return f"Phase {phase_id} marked complete. Moving to next phase."
+
+
+class PhaseAgent(Agent):
+    """Generic phase agent that conducts one interview phase with LLM"""
 
     def __init__(self, tools):
         """
         Args:
             tools: Company-specific tool provider (e.g., AmazonSystemDesignTools)
         """
+
+        def get_phase_instruction(ctx: ReadonlyContext) -> str:
+            """Generate phase-specific instruction based on current phase in session state."""
+            phase_id = ctx.session.state.get("current_phase", "unknown")
+            phase_context = tools.get_context(phase_id)
+
+            return f"""You are conducting the {phase_id} phase of a system design interview.
+
+Phase Context:
+{phase_context}
+
+Your role:
+1. Ask relevant questions about the topics in this phase
+2. Guide the candidate through the discussion
+3. Provide hints if they're stuck
+4. When the candidate has adequately covered the key topics, call mark_phase_complete()
+
+Be conversational, encouraging, and thorough. Don't rush - let the candidate think through
+the problem."""
+
         super().__init__(
+            model=MODEL_NAME,
             name="phase_agent",
             description="Conducts a single interview phase with multi-turn conversation",
+            tools=[mark_phase_complete],
+            instruction=get_phase_instruction,
         )
         self.tools = tools
-
-    async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
-        """Execute one phase iteration"""
-        phase_id = ctx.session.state.get("current_phase")
-        logger.info(f"PhaseAgent running for phase: {phase_id}")
-
-        # Step 1: Show context (first time)
-        if not ctx.session.state.get("context_shown"):
-            logger.info(f"Showing phase context for: {phase_id}")
-            yield Event(author=self.name)
-            yield Event(author=self.name, actions=EventActions(state_delta={"context_shown": True}))
-            return
-
-        # Step 2: Conduct discussion (LLM handles this naturally)
-        logger.info("Conducting discussion")
-
-        # Step 3: Evaluate
-        logger.info("Evaluating phase completion")
-
-        # Placeholder decision
-        phase_complete = False
-
-        if phase_complete:
-            yield Event(
-                author=self.name,
-                actions=EventActions(state_delta={"phase_complete": True}),
-            )
-        else:
-            yield Event(
-                author=self.name,
-                actions=EventActions(state_delta={"phase_complete": False}),
-            )

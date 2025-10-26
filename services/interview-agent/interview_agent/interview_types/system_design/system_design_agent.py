@@ -66,8 +66,11 @@ class SystemDesignAgent(BaseAgent):
 
         # Check if interview complete
         if phase_idx >= len(self.phases):
-            logger.info("Interview complete")
-            yield Event(author=self.name)
+            logger.info("All interview phases complete")
+            yield Event(
+                author=self.name,
+                actions=EventActions(state_delta={"interview_phases_complete": True}),
+            )
             return
 
         # Setup current phase
