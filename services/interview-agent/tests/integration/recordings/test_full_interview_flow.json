@@ -1,13 +1,13 @@
 {
   "test_name": "test_full_interview_flow",
-  "num_responses": 8,
+  "num_responses": 7,
   "responses": [
     {
       "content": {
         "role": "model",
         "parts": [
           {
-            "text": "Hello! I can help you practice for interviews. Which company (Amazon, Google, or Apple) and what type of interview (system design, coding, or behavioral) would you like to focus on today?"
+            "text": "Hello! I can help you practice for interviews. Which company would you like to focus on (Amazon, Google, or Apple), and what type of interview would you like to practice (system design, coding, or behavioral)?"
           }
         ]
       },
@@ -22,8 +22,8 @@
             "function_call": {
               "name": "set_routing_decision",
               "args": {
-                "company": "amazon",
-                "interview_type": "system_design"
+                "interview_type": "system_design",
+                "company": "amazon"
               }
             }
           }
@@ -37,7 +37,7 @@
         "role": "model",
         "parts": [
           {
-            "text": "Great! We'll focus on Amazon system design interviews. I've saved your preferences. Let's get started!"
+            "text": "Great! We'll focus on Amazon system design interviews. I've saved your preferences."
           }
         ]
       },
@@ -61,7 +61,7 @@
         "role": "model",
         "parts": [
           {
-            "text": "Great! To kick things off, could you please tell me your name?"
+            "text": "Great to meet you, Alice! Your experience with distributed systems and real-time messaging sounds very relevant to system design. Let's dive right in.\n\nFor our problem today, let's design **a URL shortening service** like Bitly or TinyURL.\n\nTo start, let's clarify the problem. I'd love to hear your thoughts on some key aspects. How do you envision the **scale** of this service in terms of daily active users, queries per second, and data volume?"
           }
         ]
       },
@@ -73,15 +73,7 @@
         "role": "model",
         "parts": [
           {
-            "function_call": {
-              "name": "save_candidate_info",
-              "args": {
-                "domain": "distributed systems and backend",
-                "projects": "real-time messaging system and API gateway",
-                "years_experience": 5,
-                "name": "Alice"
-              }
-            }
+            "text": "Excellent! A URL shortener is a classic system design problem.\n\nYou mentioned \"like Bitly,\" which gives us a good starting point. Bitly handles a massive amount of traffic, so let's think big.\n\nRegarding **scale**, what are your initial thoughts on:\n\n*   **Queries per second (QPS)** for both URL shortening (write operations) and URL redirection (read operations)?\n*   **Number of unique shortened URLs** we might need to store?\n*   **Data storage requirements** over, say, 5-10 years?\n\nDon't worry about being precise, just give me your estimates and the reasoning behind them. This helps us understand the magnitude of the problem we're solving."
           }
         ]
       },
@@ -93,19 +85,7 @@
         "role": "model",
         "parts": [
           {
-            "text": "Fantastic, Alice! It's great to hear about your experience in distributed systems and backend, and those projects sound very interesting.\n\nHere's how today's system design interview will work: We'll go through a problem together, covering clarifications, requirements, data modeling, API design, architecture, and then dive deep into specific areas. It's a collaborative discussion \u2013 feel free to ask questions and think out loud. The whole thing takes about 45-60 minutes.\n\nAre you ready to begin?"
-          }
-        ]
-      },
-      "finish_reason": "STOP",
-      "turn_complete": null
-    },
-    {
-      "content": {
-        "role": "model",
-        "parts": [
-          {
-            "text": "Thank you so much for your time today, Alice. That concludes our Amazon system design interview. I really enjoyed our discussion, and I particularly appreciated your structured approach to problem-solving and your strong understanding of distributed systems concepts, drawing from your experience with projects like real-time messaging.\n\nBefore we finish, do you have any questions for me about the next steps in the interview process, the timeline for feedback, the role itself, or Amazon as a company?\n\nIt was a pleasure speaking with you, and I wish you the very best with the remainder of your interview journey. Keep exploring those complex system challenges!"
+            "text": "It seems like there might be a misunderstanding. We've just started the \"Data Design\" phase, and we're currently discussing the **scale** of the URL shortening service. This is a crucial step as it informs many of our design decisions for the data layer.\n\nWe still need to cover:\n1.  **Database choice** (SQL vs NoSQL)\n2.  **Schema** (tables, fields, relationships)\n3.  **Indexing strategy**\n4.  **Sharding/partitioning**\n5.  **Replication**\n\nBefore we move on, could you please share your estimates for the scale aspects we just discussed? For instance:\n\n*   How many **shorten requests per second** do you anticipate?\n*   How many **redirection requests per second**?\n*   What's your estimate for the **total number of unique shortened URLs** we'd need to store over time?\n\nOnce we have a better understanding of the scale, we can proceed with the rest of the data layer design."
           }
         ]
       },

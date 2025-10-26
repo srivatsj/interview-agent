@@ -29,13 +29,13 @@ class SystemDesignAgent(BaseAgent):
         logger.info(f"Initializing SystemDesignAgent for company: {company}")
 
         # Get company-specific tools
-        tools = self._get_company_tools(company)
+        tool_provider = self._get_company_tools(company)
 
         # Fetch phases from tools
-        phases = tools.get_phases()
+        phases = tool_provider.get_phases()
 
         # Create phase agent
-        phase_agent = PhaseAgent(tools)
+        phase_agent = PhaseAgent(tool_provider)
 
         super().__init__(
             name=f"{company}_system_design_orchestrator",
@@ -44,7 +44,7 @@ class SystemDesignAgent(BaseAgent):
         )
 
         # Set attributes after super().__init__()
-        self.tools = tools
+        self.tool_provider = tool_provider
         self.phases = phases
         self.phase_agent = phase_agent
 

@@ -25,7 +25,7 @@ class TestPhaseAgent:
         agent = PhaseAgent(tools)
 
         assert agent.name == "phase_agent"
-        assert agent.tools == tools
+        assert agent.tool_provider == tools
         assert agent.description == "Conducts a single interview phase with multi-turn conversation"
 
 
