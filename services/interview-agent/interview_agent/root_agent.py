@@ -14,7 +14,10 @@ from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event
 from google.adk.tools import ToolContext
 
-from .interview_types.system_design.orchestrator import system_design_interview_orchestrator
+from .interview_types.system_design.orchestrator import SystemDesignOrchestrator
+from .interview_types.system_design.system_design_agent import SystemDesignAgent
+from .shared.agents.closing_agent import closing_agent
+from .shared.agents.intro_agent import intro_agent
 from .shared.constants import MODEL_NAME, SUPPORTED_COMPANIES, SUPPORTED_INTERVIEW_TYPES
 from .shared.prompts.prompt_loader import load_prompt
 from .shared.schemas import RoutingDecision
@@ -30,10 +33,9 @@ class RootCustomAgent(BaseAgent):
 
     # Type hints for sub-agents (required by BaseAgent)
     routing_agent: Agent
-    system_design_orchestrator: BaseAgent
 
     # Pydantic configuration to allow arbitrary types
-    model_config = {"arbitrary_types_allowed": True}
+    model_config = {"arbitrary_types_allowed": True, "extra": "allow"}
 
     @staticmethod
     def set_routing_decision(company: str, interview_type: str, tool_context: ToolContext) -> str:
@@ -69,10 +71,7 @@ class RootCustomAgent(BaseAgent):
 
         return f"Routing saved: {company.lower()} {interview_type.lower()}"
 
-    def __init__(
-        self,
-        system_design_orchestrator: BaseAgent,
-    ):
+    def __init__(self):
         # Create the routing agent with the tool
         routing_agent = Agent(
             model=MODEL_NAME,
@@ -87,9 +86,11 @@ class RootCustomAgent(BaseAgent):
             name="interview_router",
             description="Routes users to appropriate interview with minimal LLM calls",
             routing_agent=routing_agent,
-            system_design_orchestrator=system_design_orchestrator,
-            sub_agents=[routing_agent, system_design_orchestrator],
+            sub_agents=[routing_agent],
         )
+
+        # Lazy-created orchestrator based on routing decision
+        self._system_design_orchestrator = None
 
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         """
@@ -110,10 +111,21 @@ class RootCustomAgent(BaseAgent):
         # Step 2: If routing exists (either was there or just collected), delegate to interview
         if routing_decision:
             interview_type = routing_decision.get("interview_type")
-            logger.info(f"Delegating to {interview_type} interview")
+            company = routing_decision.get("company", "amazon").lower()
+            logger.info(f"Delegating to {interview_type} interview for {company}")
 
             if interview_type == "system_design":
-                async for event in self.system_design_orchestrator.run_async(ctx):
+                # Lazy-create orchestrator with company-specific design agent
+                if self._system_design_orchestrator is None:
+                    logger.info(f"Creating system design orchestrator for company: {company}")
+                    design_agent = SystemDesignAgent(company=company)
+                    self._system_design_orchestrator = SystemDesignOrchestrator(
+                        intro_agent=intro_agent,
+                        design_agent=design_agent,
+                        closing_agent=closing_agent,
+                    )
+
+                async for event in self._system_design_orchestrator.run_async(ctx):
                     yield event
             elif interview_type == "coding":
                 logger.warning("Coding interviews not yet implemented")
@@ -123,7 +135,5 @@ class RootCustomAgent(BaseAgent):
             logger.warning("No routing decision found after routing agent")
 
 
-# Create the root agent instance with sub-agents
-root_agent = RootCustomAgent(
-    system_design_orchestrator=system_design_interview_orchestrator,
-)
+# Create the root agent instance
+root_agent = RootCustomAgent()

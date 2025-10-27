@@ -50,10 +50,11 @@ class TestSystemDesignOrchestrator:
                 yield Event(author=self.name)
 
         intro_agent = MockIntroAgent()
+        design_agent = Agent(model="dummy-model-no-llm", name="mock_design")
         closing_agent = Agent(model="dummy-model-no-llm", name="mock_closing")
 
         orchestrator = SystemDesignOrchestrator(
-            intro_agent=intro_agent, closing_agent=closing_agent
+            intro_agent=intro_agent, design_agent=design_agent, closing_agent=closing_agent
         )
 
         # Create context with intro phase (default)
@@ -81,10 +82,11 @@ class TestSystemDesignOrchestrator:
                     yield
 
         intro_agent = MockIntroAgent()
+        design_agent = Agent(model="dummy-model-no-llm", name="mock_design")
         closing_agent = Agent(model="dummy-model-no-llm", name="mock_closing")
 
         orchestrator = SystemDesignOrchestrator(
-            intro_agent=intro_agent, closing_agent=closing_agent
+            intro_agent=intro_agent, design_agent=design_agent, closing_agent=closing_agent
         )
 
         # Create context with intro phase
@@ -107,27 +109,37 @@ class TestSystemDesignOrchestrator:
     # Design phase tests
     @pytest.mark.asyncio
     async def test_design_phase_creates_and_runs_design_agent(self):
-        """Test orchestrator creates design agent lazily and runs it - NO LLM CALLS"""
+        """Test orchestrator runs design agent in design phase - NO LLM CALLS"""
+        from google.adk.events import Event
+
+        class MockDesignAgent(BaseAgent):
+            model_config = {"arbitrary_types_allowed": True}
+            called: ClassVar[bool] = False
+
+            def __init__(self):
+                super().__init__(name="mock_design", description="Mock")
+
+            async def run_async(self, _ctx):
+                MockDesignAgent.called = True
+                yield Event(author=self.name)
+
         intro_agent = Agent(model="dummy-model-no-llm", name="mock_intro")
+        design_agent = MockDesignAgent()
         closing_agent = Agent(model="dummy-model-no-llm", name="mock_closing")
 
         orchestrator = SystemDesignOrchestrator(
-            intro_agent=intro_agent, closing_agent=closing_agent
+            intro_agent=intro_agent, design_agent=design_agent, closing_agent=closing_agent
         )
 
-        # Create context with design phase and routing_decision
-        ctx = create_mock_context(
-            {"interview_phase": "design", "routing_decision": {"company": "amazon"}}
-        )
+        # Create context with design phase
+        ctx = create_mock_context({"interview_phase": "design"})
 
-        # Execute orchestrator - should create design agent lazily
-        events = []
-        async for event in orchestrator._run_async_impl(ctx):
-            events.append(event)
+        # Execute orchestrator
+        async for _ in orchestrator._run_async_impl(ctx):
+            pass
 
-        # Verify design agent was created
-        assert orchestrator._design_agent is not None, "Design agent should have been created"
-        assert orchestrator._design_agent.name == "amazon_system_design_orchestrator"
+        # Verify design agent was called
+        assert MockDesignAgent.called, "Design agent should have been called"
 
     @pytest.mark.asyncio
     async def test_design_phase_transitions_to_closing_when_complete(self):
@@ -147,14 +159,12 @@ class TestSystemDesignOrchestrator:
                 yield Event(author=self.name)
 
         intro_agent = Agent(model="dummy-model-no-llm", name="mock_intro")
+        design_agent = MockDesignAgent()
         closing_agent = Agent(model="dummy-model-no-llm", name="mock_closing")
 
         orchestrator = SystemDesignOrchestrator(
-            intro_agent=intro_agent, closing_agent=closing_agent
+            intro_agent=intro_agent, design_agent=design_agent, closing_agent=closing_agent
         )
-
-        # Inject mock design agent to avoid lazy creation
-        orchestrator._design_agent = MockDesignAgent()
 
         # Create context with design phase
         ctx = create_mock_context(
@@ -195,10 +205,11 @@ class TestSystemDesignOrchestrator:
                 yield Event(author=self.name)
 
         intro_agent = Agent(model="dummy-model-no-llm", name="mock_intro")
+        design_agent = Agent(model="dummy-model-no-llm", name="mock_design")
         closing_agent = MockClosingAgent()
 
         orchestrator = SystemDesignOrchestrator(
-            intro_agent=intro_agent, closing_agent=closing_agent
+            intro_agent=intro_agent, design_agent=design_agent, closing_agent=closing_agent
         )
 
         # Create context with closing phase
@@ -226,10 +237,11 @@ class TestSystemDesignOrchestrator:
                     yield
 
         intro_agent = Agent(model="dummy-model-no-llm", name="mock_intro")
+        design_agent = Agent(model="dummy-model-no-llm", name="mock_design")
         closing_agent = MockClosingAgent()
 
         orchestrator = SystemDesignOrchestrator(
-            intro_agent=intro_agent, closing_agent=closing_agent
+            intro_agent=intro_agent, design_agent=design_agent, closing_agent=closing_agent
         )
 
         # Create context with closing phase
@@ -254,10 +266,11 @@ class TestSystemDesignOrchestrator:
     async def test_done_phase_completes_without_error(self):
         """Test orchestrator handles done phase without error - NO LLM CALLS"""
         intro_agent = Agent(model="dummy-model-no-llm", name="mock_intro")
+        design_agent = Agent(model="dummy-model-no-llm", name="mock_design")
         closing_agent = Agent(model="dummy-model-no-llm", name="mock_closing")
 
         orchestrator = SystemDesignOrchestrator(
-            intro_agent=intro_agent, closing_agent=closing_agent
+            intro_agent=intro_agent, design_agent=design_agent, closing_agent=closing_agent
         )
 
         # Create context with done phase

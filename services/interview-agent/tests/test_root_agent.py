@@ -1,7 +1,7 @@
 """Unit tests for RootCustomAgent"""
 
 from typing import ClassVar
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from google.adk.agents import BaseAgent
@@ -71,7 +71,7 @@ class TestRootCustomAgentDelegation:
             model_config = {"arbitrary_types_allowed": True}
             called: ClassVar[bool] = False
 
-            def __init__(self):
+            def __init__(self, **kwargs):
                 super().__init__(name="mock_orchestrator", description="Mock")
 
             async def run_async(self, _ctx):
@@ -80,28 +80,29 @@ class TestRootCustomAgentDelegation:
                 if False:
                     yield
 
-        orchestrator = MockOrchestrator()
+        # Mock SystemDesignOrchestrator to return our mock
+        with (
+            patch("interview_agent.root_agent.SystemDesignOrchestrator", MockOrchestrator),
+            patch("interview_agent.root_agent.SystemDesignAgent"),
+        ):
+            agent = RootCustomAgent()
 
-        agent = RootCustomAgent(system_design_orchestrator=orchestrator)
+            # Create context with system_design routing pre-set (no LLM call needed)
+            ctx = create_mock_context(
+                {"routing_decision": {"company": "amazon", "interview_type": "system_design"}}
+            )
 
-        # Create context with system_design routing pre-set (no LLM call needed)
-        ctx = create_mock_context(
-            {"routing_decision": {"company": "google", "interview_type": "system_design"}}
-        )
+            # Execute _run_async_impl directly
+            async for _ in agent._run_async_impl(ctx):
+                pass
 
-        # Execute _run_async_impl directly
-        async for _ in agent._run_async_impl(ctx):
-            pass
-
-        # Verify orchestrator was invoked
-        assert MockOrchestrator.called, "Orchestrator should have been called"
+            # Verify orchestrator was invoked
+            assert MockOrchestrator.called, "Orchestrator should have been called"
 
     @pytest.mark.asyncio
     async def test_run_async_coding_logs_warning(self, caplog):
         """Test coding interview logs warning - NO LLM CALLS"""
-        orchestrator = BaseAgent(name="mock", description="Mock")
-
-        agent = RootCustomAgent(system_design_orchestrator=orchestrator)
+        agent = RootCustomAgent()
 
         # Pre-set coding routing (no LLM call)
         ctx = create_mock_context(
@@ -118,9 +119,7 @@ class TestRootCustomAgentDelegation:
     @pytest.mark.asyncio
     async def test_run_async_behavioral_logs_warning(self, caplog):
         """Test behavioral interview logs warning - NO LLM CALLS"""
-        orchestrator = BaseAgent(name="mock", description="Mock")
-
-        agent = RootCustomAgent(system_design_orchestrator=orchestrator)
+        agent = RootCustomAgent()
 
         # Pre-set behavioral routing (no LLM call)
         ctx = create_mock_context(
