@@ -110,7 +110,7 @@ class TestCompleteInterviewFlow:
                     user_id=test_session.user_id,
                     session_id=test_session.id,
                     new_message=create_user_message(
-                        "I'm Alice, 5 years experience in distributed systems. " "Ready to start!"
+                        "I'm Alice, 5 years experience in distributed systems. Ready to start!"
                     ),
                 ):
                     pass

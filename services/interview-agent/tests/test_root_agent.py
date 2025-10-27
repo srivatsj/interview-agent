@@ -80,10 +80,11 @@ class TestRootCustomAgentDelegation:
                 if False:
                     yield
 
-        # Mock SystemDesignOrchestrator to return our mock
-        with (
-            patch("interview_agent.root_agent.SystemDesignOrchestrator", MockOrchestrator),
-            patch("interview_agent.root_agent.SystemDesignAgent"),
+        # Mock InterviewFactory to return our mock
+        mock_orchestrator = MockOrchestrator()
+        with patch(
+            "interview_agent.root_agent.InterviewFactory.create_interview_orchestrator",
+            return_value=mock_orchestrator,
         ):
             agent = RootCustomAgent()
 
@@ -101,7 +102,7 @@ class TestRootCustomAgentDelegation:
 
     @pytest.mark.asyncio
     async def test_run_async_coding_logs_warning(self, caplog):
-        """Test coding interview logs warning - NO LLM CALLS"""
+        """Test coding interview logs warning and returns early - NO LLM CALLS"""
         agent = RootCustomAgent()
 
         # Pre-set coding routing (no LLM call)
@@ -109,16 +110,19 @@ class TestRootCustomAgentDelegation:
             {"routing_decision": {"company": "google", "interview_type": "coding"}}
         )
 
-        # Run agent
+        # Run agent - should return early with warning
+        event_count = 0
         async for _ in agent._run_async_impl(ctx):
-            pass
+            event_count += 1
 
         # Check for warning log
         assert any("Coding interviews not yet implemented" in rec.message for rec in caplog.records)
+        # Should not yield any events since it returns early
+        assert event_count == 0
 
     @pytest.mark.asyncio
     async def test_run_async_behavioral_logs_warning(self, caplog):
-        """Test behavioral interview logs warning - NO LLM CALLS"""
+        """Test behavioral interview logs warning and returns early - NO LLM CALLS"""
         agent = RootCustomAgent()
 
         # Pre-set behavioral routing (no LLM call)
@@ -126,11 +130,14 @@ class TestRootCustomAgentDelegation:
             {"routing_decision": {"company": "apple", "interview_type": "behavioral"}}
         )
 
-        # Run agent
+        # Run agent - should return early with warning
+        event_count = 0
         async for _ in agent._run_async_impl(ctx):
-            pass
+            event_count += 1
 
         # Check for warning log
         assert any(
             "Behavioral interviews not yet implemented" in rec.message for rec in caplog.records
         )
+        # Should not yield any events since it returns early
+        assert event_count == 0

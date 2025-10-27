@@ -10,7 +10,6 @@ from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event, EventActions
 
 from .phase_agent import PhaseAgent
-from .tools.amazon_tools import AmazonSystemDesignTools
 
 logger = logging.getLogger(__name__)
 
@@ -21,15 +20,13 @@ class SystemDesignAgent(BaseAgent):
     # Pydantic configuration to allow arbitrary types and extra fields
     model_config = {"arbitrary_types_allowed": True, "extra": "allow"}
 
-    def __init__(self, company: str):
+    def __init__(self, tool_provider, name: str = "system_design_orchestrator"):
         """
         Args:
-            company: Company name (e.g., "amazon", "google", "meta")
+            tool_provider: Company-specific tool provider (e.g., AmazonSystemDesignTools)
+            name: Agent name (default: "system_design_orchestrator")
         """
-        logger.info(f"Initializing SystemDesignAgent for company: {company}")
-
-        # Get company-specific tools
-        tool_provider = self._get_company_tools(company)
+        logger.info(f"Initializing SystemDesignAgent with name: {name}")
 
         # Fetch phases from tools
         phases = tool_provider.get_phases()
@@ -38,8 +35,8 @@ class SystemDesignAgent(BaseAgent):
         phase_agent = PhaseAgent(tool_provider)
 
         super().__init__(
-            name=f"{company}_system_design_orchestrator",
-            description=f"Conducts system design interview for {company}",
+            name=name,
+            description="Conducts system design interview with phase orchestration",
             sub_agents=[phase_agent],
         )
 
@@ -47,18 +44,6 @@ class SystemDesignAgent(BaseAgent):
         self.tool_provider = tool_provider
         self.phases = phases
         self.phase_agent = phase_agent
-
-    def _get_company_tools(self, company: str):
-        """Inject company-specific tool provider"""
-        logger.info(f"Loading tools for company: {company}")
-
-        if company == "amazon":
-            return AmazonSystemDesignTools()
-        elif company == "google":
-            # TODO: Implement GoogleSystemDesignTools
-            raise NotImplementedError(f"Tools for {company} not yet implemented")
-        else:
-            raise ValueError(f"Unknown company: {company}")
 
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         """Orchestrate interview phases with clean phase sequencing"""

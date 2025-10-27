@@ -1,0 +1,80 @@
+"""Factory for creating interview orchestrators based on type and company."""
+
+import logging
+
+from google.adk.agents import BaseAgent
+
+from ..shared.agents.closing_agent import closing_agent
+from ..shared.agents.intro_agent import intro_agent
+from .system_design.company_factory import CompanyFactory
+from .system_design.orchestrator import SystemDesignOrchestrator
+from .system_design.system_design_agent import SystemDesignAgent
+
+logger = logging.getLogger(__name__)
+
+
+class InterviewFactory:
+    """Factory for creating interview orchestrators."""
+
+    @staticmethod
+    def create_interview_orchestrator(routing_decision: dict) -> BaseAgent:
+        """Create an interview orchestrator based on routing decision.
+
+        Args:
+            routing_decision: Dict with 'interview_type' and 'company' keys
+
+        Returns:
+            Interview orchestrator
+
+        Raises:
+            ValueError: If interview_type or company is missing or invalid
+            NotImplementedError: If interview type is not yet implemented
+        """
+        interview_type = routing_decision.get("interview_type", "")
+        company = routing_decision.get("company", "")
+
+        if not interview_type:
+            raise ValueError("Missing 'interview_type' in routing decision")
+
+        if not company:
+            raise ValueError("Missing 'company' in routing decision")
+
+        interview_type_lower = interview_type.lower()
+        company_lower = company.lower()
+
+        if interview_type_lower == "system_design":
+            return InterviewFactory._create_system_design_orchestrator(company_lower)
+        elif interview_type_lower == "coding":
+            raise NotImplementedError("Coding interviews not yet implemented")
+        elif interview_type_lower == "behavioral":
+            raise NotImplementedError("Behavioral interviews not yet implemented")
+        else:
+            raise ValueError(
+                f"Unknown interview type: {interview_type}. "
+                "Must be one of: system_design, coding, behavioral"
+            )
+
+    @staticmethod
+    def _create_system_design_orchestrator(company: str) -> SystemDesignOrchestrator:
+        """Create system design orchestrator with company-specific agent.
+
+        Args:
+            company: Company name
+
+        Returns:
+            SystemDesignOrchestrator with company-specific design agent
+        """
+        # Get company-specific tools
+        tool_provider = CompanyFactory.get_tools(company)
+
+        # Create design agent with tools
+        design_agent = SystemDesignAgent(
+            tool_provider=tool_provider,
+            name=f"{company}_system_design_orchestrator",
+        )
+
+        return SystemDesignOrchestrator(
+            intro_agent=intro_agent,
+            design_agent=design_agent,
+            closing_agent=closing_agent,
+        )
