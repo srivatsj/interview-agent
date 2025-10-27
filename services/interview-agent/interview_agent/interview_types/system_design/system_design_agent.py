@@ -9,7 +9,7 @@ from google.adk.agents import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event, EventActions
 
-from .phase_agent import PhaseAgent
+from .sub_agents import PhaseAgent
 
 logger = logging.getLogger(__name__)
 

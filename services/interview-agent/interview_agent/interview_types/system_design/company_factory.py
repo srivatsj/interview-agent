@@ -2,7 +2,7 @@
 
 import logging
 
-from .tools.amazon_tools import AmazonSystemDesignTools
+from .providers import AmazonSystemDesignTools
 
 logger = logging.getLogger(__name__)
 

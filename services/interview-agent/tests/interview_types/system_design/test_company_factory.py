@@ -3,7 +3,7 @@
 import pytest
 
 from interview_agent.interview_types.system_design.company_factory import CompanyFactory
-from interview_agent.interview_types.system_design.tools.amazon_tools import (
+from interview_agent.interview_types.system_design.providers import (
     AmazonSystemDesignTools,
 )
 
