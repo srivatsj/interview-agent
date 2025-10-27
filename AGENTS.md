@@ -6,10 +6,12 @@
 - `samples/` hosts ADK reference agents for safe prototyping before promoting code into the service package.
 
 ## Build, Test, and Development Commands
+- Follow `services/interview-agent/README.md` for the bootstrap flow (uv venv → activate → uv pip install -e ".[dev]"); last verified in this session.
 - `uv venv && source .venv/bin/activate` — create and activate the Python 3.10 virtualenv.
 - `uv pip install -e ".[dev]"` — install service and development extras (pytest, ruff, pre-commit).
 - `pytest -v` — run the full suite (integration runs in replay mode by default).
 - `RECORD_MODE=true pytest tests/integration/test_interview_flow.py -v` — refresh LLM-backed recordings.
+- Before re-recording fixtures, confirm with the requester and prefer they run record mode locally (share prompts/output instead of executing unapproved LLM calls yourself).
 - `ruff check .` / `ruff format .` — lint and format to the enforced style.
 
 ## Coding Style & Naming Conventions
@@ -20,6 +22,7 @@
 ## Testing Guidelines
 - Unit tests live under `tests/` with filenames `test_*.py`; mirror the package path and keep inputs deterministic.
 - Integration flows use the record/replay harness in `tests/integration/llm_recorder.py`. Record after changing prompts, control flow, or tool contracts; replay otherwise to stay fast and offline.
+- Hardcoded interviewee prompts live beside the fixtures in `tests/integration/recordings/amazon_system_design_user_script.json`; update them in sync with any replay refresh.
 - Use `pytest --cov=interview_agent --cov-report=term-missing` to check coverage on new features.
 
 ## Commit & Pull Request Guidelines
