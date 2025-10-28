@@ -1,13 +1,19 @@
 [project]
-name = "google-system-design-agent"
+name = "meta-interview-agent"
 version = "0.1.0"
-description = "Remote Google system design interview agent exposing deterministic skills."
+description = "LangGraph-powered meta interview coordinator served over the A2A protocol."
 requires-python = ">=3.10"
 dependencies = [
     "a2a-sdk>=0.3.0",
     "click>=8.1.8",
-    "starlette>=0.37.0",
-    "sse-starlette>=2.3.5",
+    "httpx>=0.28.1",
+    "langchain-google-genai>=2.0.10",
+    "langchain-openai>=0.1.0",
+    "langgraph>=0.3.18",
+    "pydantic>=2.10.6",
+    "python-dotenv>=1.0.1",
+    "sse-starlette>=2.3.6",
+    "starlette>=0.37.2",
     "uvicorn>=0.34.0",
 ]
 
