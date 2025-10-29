@@ -1,16 +1,10 @@
 import json
-import sys
-from pathlib import Path
 from typing import Any
 
 import pytest
 
-PACKAGE_ROOT = Path(__file__).resolve().parents[1]
-if str(PACKAGE_ROOT) not in sys.path:
-    sys.path.insert(0, str(PACKAGE_ROOT))
-
-from meta_agent.agent import MetaAgent  # noqa: E402
-from meta_agent.executor import MetaAgentExecutor  # noqa: E402
+from meta_agent.agent import MetaAgent
+from meta_agent.executor import MetaAgentExecutor
 
 
 class StubContext:

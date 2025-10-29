@@ -1,35 +1,46 @@
-# Repository Guidelines
+# Interview Agent Catalog
 
-## Project Structure & Module Organization
-- Core service lives in `services/interview-agent`. The `interview_agent/` package holds the entrypoint `root_agent.py`, reusable helpers in `shared/`, and system-design orchestration under `interview_types/system_design/` (orchestrator, phase agent, company tools, prompts).
-- Tests mirror the package layout in `services/interview-agent/tests`; integration flows and their replay fixtures sit in `tests/integration/`.
-- `samples/` hosts ADK reference agents for safe prototyping before promoting code into the service package.
+| Agent | Purpose | Key Features | Requirements |
+| ----- | ------- | ------------ | ------------ |
+| `RootCustomAgent` | Main orchestrator for multi-phase system design interviews using Google ADK. | Deterministic routing, phase orchestration, tool-backed state, record/replay testing. Company-specific interview flows (Amazon, Google, Meta). | Google API key with Gemini access |
 
-## Build, Test, and Development Commands
-- Follow `services/interview-agent/README.md` for the bootstrap flow (uv venv → activate → uv pip install -e ".[dev]"); last verified in this session.
-- `uv venv && source .venv/bin/activate` — create and activate the Python 3.10 virtualenv.
-- `uv pip install -e ".[dev]"` — install service and development extras (pytest, ruff, pre-commit).
-- `pytest -v` — run the full suite (integration runs in replay mode by default).
-- `RECORD_MODE=true pytest tests/integration/test_interview_flow.py -v` — refresh LLM-backed recordings.
-- Before re-recording fixtures, confirm with the requester and prefer they run record mode locally (share prompts/output instead of executing unapproved LLM calls yourself).
-- `ruff check .` / `ruff format .` — lint and format to the enforced style.
+## Agent Hierarchy
 
-## Coding Style & Naming Conventions
-- Target Python 3.10, line length 100, four-space indentation. Prefer double quotes and explicit top-level imports so Ruff passes cleanly.
-- Keep module names snake_case, classes PascalCase, and private helpers prefixed with `_`. Mirror existing filenames in `shared/prompts` and `shared/schemas`.
-- Run `pre-commit install` so lint and format checks fire automatically.
+### Root Agent
+- **RootCustomAgent**: Entrypoint that delegates based on persisted routing decisions
 
-## Testing Guidelines
-- Unit tests live under `tests/` with filenames `test_*.py`; mirror the package path and keep inputs deterministic.
-- Integration flows use the record/replay harness in `tests/integration/llm_recorder.py`. Record after changing prompts, control flow, or tool contracts; replay otherwise to stay fast and offline.
-- Hardcoded interviewee prompts live beside the fixtures in `tests/integration/recordings/amazon_system_design_user_script.json`; update them in sync with any replay refresh.
-- Use `pytest --cov=interview_agent --cov-report=term-missing` to check coverage on new features.
+### Interview Types
+- **System Design Orchestrator**: Coordinates interview phases (intro → design phases → closing)
+- **Phase Agent**: LLM-driven phase management
+- **Company-Specific Agents**: Amazon, Google, Meta interview styles
 
-## Commit & Pull Request Guidelines
-- Match the history: concise subject lines led by an action or qualifier, with short bullet points in the body when listing outcomes (e.g., “Refactor: …” or “test_complete_interview_journey - …”).
-- Reference issues, flag updated recordings, and attach command output or screenshots for behavioral changes.
-- Confirm Ruff, unit tests, and replay-mode integration tests pass; document any skipped checks and schedule re-recordings before merge.
+### Shared Agents
+- **Intro Agent**: Reusable introduction phase
+- **Closing Agent**: Reusable closing phase
 
-## Environment & Secrets
-- Export `GOOGLE_API_KEY` locally or via a `.env`; keep secrets and recordings with sensitive payloads out of source control.
-- Toggle networked integration tests with `RECORD_MODE` and prune stale JSON fixtures once flows diverge.
+## Architecture
+
+The interview agent uses:
+- **Deterministic routing** from root agent
+- **Phase orchestration** through system-design flows
+- **Tool-backed state** with company-specific providers
+- **Record/replay testing** for integration coverage
+
+## Project Structure
+
+```
+interview_agent/
+├── root_agent.py                         # RootCustomAgent entrypoint
+├── interview_types/
+│   └── system_design/
+│       ├── orchestrator.py               # Coordinates interview phases
+│       ├── system_design_agent.py        # Company-specific orchestration
+│       ├── phase_agent.py                # LLM-driven phase management
+│       └── providers/                    # Tool definitions per company
+├── shared/
+│   ├── agents/                           # Intro/closing reusable agents
+│   ├── prompts/                          # External prompt templates
+│   ├── schemas/                          # Pydantic data contracts
+│   └── constants.py
+└── ...
+```

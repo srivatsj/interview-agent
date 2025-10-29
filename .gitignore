@@ -57,5 +57,11 @@ Thumbs.db
 # Ruff
 .ruff_cache/
 
+# UV
+uv.lock
+
 # External samples
 samples/
+
+# Claude Code
+.claude/settings.local.json
