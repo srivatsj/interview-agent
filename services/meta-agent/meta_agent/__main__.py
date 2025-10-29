@@ -31,9 +31,33 @@ def build_agent_card(host: str, port: int) -> AgentCard:
         capabilities=AgentCapabilities(streaming=False),
         skills=[
             AgentSkill(
+                id="get_supported_interview_types",
+                name="Get Supported Interview Types",
+                description="Return the list of interview types this agent can conduct.",
+                tags=["discovery", "capabilities"],
+                examples=['{"skill": "get_supported_interview_types"}'],
+            ),
+            AgentSkill(
+                id="start_interview",
+                name="Start Interview Session",
+                description=(
+                    "Initialize an interview session with interview type and candidate "
+                    "information. Must be called before using other skills."
+                ),
+                tags=["session", "initialization"],
+                examples=[
+                    (
+                        '{"skill": "start_interview", "args": '
+                        '{"interview_type": "system_design", '
+                        '"candidate_info": {"name": "John Doe", "years_experience": 5, '
+                        '"domain": "distributed systems", "projects": "Payment processing"}}}'
+                    ),
+                ],
+            ),
+            AgentSkill(
                 id="get_phases",
                 name="List Interview Phases",
-                description="Return the ordered Google-style system design phases.",
+                description="Return the ordered interview phases for the active session.",
                 tags=["system-design", "phases"],
                 examples=['{"skill": "get_phases"}'],
             ),
@@ -44,6 +68,19 @@ def build_agent_card(host: str, port: int) -> AgentCard:
                 tags=["system-design", "context"],
                 examples=[
                     '{"skill": "get_context", "args": {"phase_id": "plan_and_scope"}}',
+                ],
+            ),
+            AgentSkill(
+                id="get_question",
+                name="Get Interview Question",
+                description=(
+                    "Return an interview question tailored to the candidate's background. "
+                    "Requires an active session created by start_interview. "
+                    "Question complexity is automatically adjusted based on years of experience."
+                ),
+                tags=["question", "interview"],
+                examples=[
+                    '{"skill": "get_question"}',
                 ],
             ),
             AgentSkill(

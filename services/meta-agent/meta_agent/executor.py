@@ -13,6 +13,7 @@ from a2a.utils import new_agent_text_message
 from a2a.utils.errors import ServerError
 
 from meta_agent.agent import MetaAgent
+from meta_agent.session import InterviewSession
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ class MetaAgentExecutor(AgentExecutor):
 
     def __init__(self) -> None:
         self.agent = MetaAgent()
+        self.sessions: dict[str, InterviewSession] = {}  # context_id -> InterviewSession
 
     async def execute(
         self,
@@ -30,10 +32,11 @@ class MetaAgentExecutor(AgentExecutor):
     ) -> None:
         """Handle incoming requests and enqueue the agent's JSON response."""
         raw_input = context.get_user_input() or ""
-        logger.debug("Received payload: %s", raw_input)
+        context_id = context.context_id
+        logger.debug("Received payload: %s for context_id: %s", raw_input, context_id)
 
         try:
-            response = self.agent.dispatch(raw_input)
+            response = self.agent.dispatch(raw_input, context_id, self.sessions)
         except Exception as exc:  # pragma: no cover - defensive fallback
             logger.exception("LangGraph dispatch failure")
             response = self._serialize_error("execution_error", str(exc))

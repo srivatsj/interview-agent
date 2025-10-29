@@ -7,7 +7,19 @@ from meta_agent.agent import MetaAgent
 
 def test_dispatch_get_phases() -> None:
     agent = MetaAgent()
-    response = agent.dispatch('{"skill": "get_phases"}')
+    sessions = {}
+    context_id = "test-context-1"
+
+    # Start interview first
+    agent.dispatch(
+        '{"skill": "start_interview", "args": {"interview_type": "system_design", '
+        '"candidate_info": {"name": "Test", "years_experience": 5}}}',
+        context_id,
+        sessions,
+    )
+
+    # Now get phases
+    response = agent.dispatch('{"skill": "get_phases"}', context_id, sessions)
     payload = json.loads(response)
 
     assert payload["status"] == "ok"
@@ -16,7 +28,22 @@ def test_dispatch_get_phases() -> None:
 
 def test_dispatch_get_context() -> None:
     agent = MetaAgent()
-    response = agent.dispatch('{"skill": "get_context", "args": {"phase_id": "plan_and_scope"}}')
+    sessions = {}
+    context_id = "test-context-2"
+
+    # Start interview first
+    agent.dispatch(
+        '{"skill": "start_interview", "args": {"interview_type": "system_design", '
+        '"candidate_info": {"name": "Test", "years_experience": 5}}}',
+        context_id,
+        sessions,
+    )
+
+    response = agent.dispatch(
+        '{"skill": "get_context", "args": {"phase_id": "plan_and_scope"}}',
+        context_id,
+        sessions,
+    )
     payload = json.loads(response)
 
     assert payload["status"] == "ok"
@@ -25,12 +52,23 @@ def test_dispatch_get_context() -> None:
 
 def test_dispatch_evaluate() -> None:
     agent = MetaAgent()
+    sessions = {}
+    context_id = "test-context-3"
+
+    # Start interview first
+    agent.dispatch(
+        '{"skill": "start_interview", "args": {"interview_type": "system_design", '
+        '"candidate_info": {"name": "Test", "years_experience": 5}}}',
+        context_id,
+        sessions,
+    )
+
     history = [{"role": "user", "content": "plan approach architecture components phase"}]
     request = {
         "skill": "evaluate",
-        "args": {"phase_id": "plan_and_scope", "conversation_history": history}
+        "args": {"phase_id": "plan_and_scope", "conversation_history": history},
     }
-    response = agent.dispatch(json.dumps(request))
+    response = agent.dispatch(json.dumps(request), context_id, sessions)
     payload = json.loads(response)
 
     assert payload["status"] == "ok"
@@ -39,7 +77,10 @@ def test_dispatch_evaluate() -> None:
 
 def test_dispatch_invalid_json() -> None:
     agent = MetaAgent()
-    response = agent.dispatch("not-json")
+    sessions = {}
+    context_id = "test-context-4"
+
+    response = agent.dispatch("not-json", context_id, sessions)
     payload = json.loads(response)
 
     assert payload["status"] == "error"
@@ -48,7 +89,22 @@ def test_dispatch_invalid_json() -> None:
 
 def test_dispatch_missing_phase_id_for_evaluate() -> None:
     agent = MetaAgent()
-    response = agent.dispatch('{"skill": "evaluate", "args": {"conversation_history": []}}')
+    sessions = {}
+    context_id = "test-context-5"
+
+    # Start interview first
+    agent.dispatch(
+        '{"skill": "start_interview", "args": {"interview_type": "system_design", '
+        '"candidate_info": {"name": "Test", "years_experience": 5}}}',
+        context_id,
+        sessions,
+    )
+
+    response = agent.dispatch(
+        '{"skill": "evaluate", "args": {"conversation_history": []}}',
+        context_id,
+        sessions,
+    )
     payload = json.loads(response)
 
     assert payload["status"] == "error"

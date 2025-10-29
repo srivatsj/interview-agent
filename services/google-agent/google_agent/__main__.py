@@ -12,6 +12,7 @@ from a2a.server.tasks import InMemoryTaskStore
 from a2a.types import AgentCapabilities, AgentCard, AgentSkill
 
 from .executor import GoogleAgentExecutor
+from .tools.design_toolset import GoogleSystemDesignToolset
 
 logging.basicConfig(level=logging.INFO)
 
@@ -19,8 +20,8 @@ logging.basicConfig(level=logging.INFO)
 def build_agent_card(host: str, port: int) -> AgentCard:
     """Construct the agent card advertised to remote orchestrators."""
     return AgentCard(
-        name="Google System Design Agent",
-        description="Remote agent that plans and conducts Google-style system design interviews.",
+        name="Google Interview Agent",
+        description="Remote agent that plans and conducts Google-style interviews.",
         url=f"http://{host}:{port}/",
         version="0.1.0",
         default_input_modes=["text"],
@@ -28,9 +29,33 @@ def build_agent_card(host: str, port: int) -> AgentCard:
         capabilities=AgentCapabilities(streaming=False),
         skills=[
             AgentSkill(
+                id="get_supported_interview_types",
+                name="Get Supported Interview Types",
+                description="Return the list of interview types this agent can conduct.",
+                tags=["discovery", "capabilities"],
+                examples=['{"skill": "get_supported_interview_types"}'],
+            ),
+            AgentSkill(
+                id="start_interview",
+                name="Start Interview Session",
+                description=(
+                    "Initialize an interview session with interview type and candidate "
+                    "information. Must be called before using other skills."
+                ),
+                tags=["session", "initialization"],
+                examples=[
+                    (
+                        '{"skill": "start_interview", "args": '
+                        '{"interview_type": "system_design", '
+                        '"candidate_info": {"name": "John Doe", "years_experience": 5, '
+                        '"domain": "distributed systems", "projects": "Payment processing"}}}'
+                    ),
+                ],
+            ),
+            AgentSkill(
                 id="get_phases",
                 name="List Interview Phases",
-                description="Return the ordered list of system design interview phases.",
+                description="Return the ordered list of interview phases for the active session.",
                 tags=["system-design", "google", "phases"],
                 examples=['{"skill": "get_phases"}'],
             ),
@@ -41,6 +66,19 @@ def build_agent_card(host: str, port: int) -> AgentCard:
                 tags=["system-design", "context"],
                 examples=[
                     '{"skill": "get_context", "args": {"phase_id": "plan_and_scope"}}',
+                ],
+            ),
+            AgentSkill(
+                id="get_question",
+                name="Get Interview Question",
+                description=(
+                    "Return an interview question tailored to the candidate's background. "
+                    "Requires an active session created by start_interview. "
+                    "Question complexity is automatically adjusted based on years of experience."
+                ),
+                tags=["question", "interview"],
+                examples=[
+                    '{"skill": "get_question"}',
                 ],
             ),
             AgentSkill(
@@ -63,9 +101,10 @@ def build_agent_card(host: str, port: int) -> AgentCard:
 @click.option("--host", "host", default="0.0.0.0")
 @click.option("--port", "port", default=10123)
 def main(host: str, port: int) -> None:
-    """Start the Google system design remote agent server."""
+    """Start the Google interview remote agent server."""
     agent_card = build_agent_card(host, port)
-    executor = GoogleAgentExecutor()
+    # For now, only support system_design
+    executor = GoogleAgentExecutor(toolsets=[GoogleSystemDesignToolset])
     request_handler = DefaultRequestHandler(agent_executor=executor, task_store=InMemoryTaskStore())
 
     app = A2AStarletteApplication(agent_card=agent_card, http_handler=request_handler)

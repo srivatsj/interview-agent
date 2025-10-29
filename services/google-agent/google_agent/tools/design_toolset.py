@@ -5,11 +5,13 @@ from __future__ import annotations
 import logging
 from typing import Any, Iterable
 
+from .base import InterviewToolset
+
 logger = logging.getLogger(__name__)
 
 
-class GoogleSystemDesignToolset:
-    """Provides Google-flavoured phases, context, and evaluation."""
+class GoogleSystemDesignToolset(InterviewToolset):
+    """Provides Google-flavoured system design phases, context, and evaluation."""
 
     _PHASES: list[dict[str, str]] = [
         {
@@ -122,6 +124,11 @@ class GoogleSystemDesignToolset:
         ],
     }
 
+    @classmethod
+    def get_interview_type(cls) -> str:
+        """Return the interview type this toolset supports."""
+        return "system_design"
+
     def get_phases(self) -> list[dict[str, str]]:
         """Return the ordered phases."""
         logger.info("GoogleSystemDesignToolset.get_phases invoked")
@@ -134,6 +141,36 @@ class GoogleSystemDesignToolset:
             phase_id,
             "Guide the candidate through Google-style system design best practices.",
         )
+
+    def get_question(self, candidate_info: dict[str, Any]) -> str:
+        """Generate an interview question based on candidate background."""
+        logger.info("GoogleSystemDesignToolset.get_question(candidate_info=%s)", candidate_info)
+
+        years_exp = candidate_info.get("years_experience", 0)
+        domain = candidate_info.get("domain", "distributed systems")
+
+        # Tailor question complexity based on experience
+        if years_exp >= 5:
+            return (
+                f"Given your {years_exp} years of experience in {domain}, "
+                "let's design a distributed system: Design a real-time collaborative "
+                "document editing service like Google Docs. The system should support "
+                "millions of concurrent users editing documents simultaneously. "
+                "Walk me through your high-level architecture and design decisions."
+            )
+        elif years_exp >= 2:
+            return (
+                f"With your {years_exp} years of experience in {domain}, "
+                "design a URL shortening service like bit.ly that can handle "
+                "millions of requests per day. Start with the high-level architecture "
+                "and explain your key design choices."
+            )
+        else:
+            return (
+                "Let's design a simple key-value cache service similar to Redis. "
+                "The service should support GET and SET operations with TTL support. "
+                "Walk me through your design approach starting with the core components."
+            )
 
     def evaluate(
         self,
