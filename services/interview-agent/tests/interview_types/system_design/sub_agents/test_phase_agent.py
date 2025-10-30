@@ -5,10 +5,8 @@ from unittest.mock import Mock, patch
 import pytest
 from google.adk.sessions import Session
 
-from interview_agent.interview_types.system_design.providers import (
-    AmazonSystemDesignTools,
-)
 from interview_agent.interview_types.system_design.sub_agents import PhaseAgent
+from interview_agent.interview_types.system_design.tools import DefaultSystemDesignTools
 
 
 class TestPhaseAgent:
@@ -16,7 +14,7 @@ class TestPhaseAgent:
 
     def test_initialization_with_tools(self):
         """Test PhaseAgent initializes correctly"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
         agent = PhaseAgent(tools)
 
         assert agent.name == "phase_agent"
@@ -25,14 +23,14 @@ class TestPhaseAgent:
 
     def test_initialization_with_custom_max_turns(self):
         """Test PhaseAgent accepts custom max_turns"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
         agent = PhaseAgent(tools, max_turns=5)
 
         assert agent.max_turns == 5
 
     def test_get_phase_instruction(self):
         """Test phase instruction generation"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
         agent = PhaseAgent(tools)
 
         instruction = agent._get_phase_instruction("data_design")
@@ -43,7 +41,7 @@ class TestPhaseAgent:
 
     def test_get_phase_instruction_for_different_phases(self):
         """Test instruction varies by phase"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
         agent = PhaseAgent(tools)
 
         inst1 = agent._get_phase_instruction("data_design")
@@ -56,7 +54,7 @@ class TestPhaseAgent:
     @pytest.mark.asyncio
     async def test_run_creates_loop_agent(self):
         """Test PhaseAgent creates and runs LoopAgent"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
         agent = PhaseAgent(tools, max_turns=3)
 
         class MockContext:
@@ -98,7 +96,7 @@ class TestPhaseAgent:
     @pytest.mark.asyncio
     async def test_run_resets_turn_count(self):
         """Test PhaseAgent resets turn count at start"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
         agent = PhaseAgent(tools)
 
         class MockContext:
@@ -135,7 +133,7 @@ class TestPhaseAgentIntegration:
 
     def test_all_phases_have_valid_instructions(self):
         """Test instruction generation works for all phases"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
         agent = PhaseAgent(tools)
         phases = tools.get_phases()
 

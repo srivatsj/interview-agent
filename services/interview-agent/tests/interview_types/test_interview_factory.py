@@ -51,14 +51,20 @@ class TestInterviewFactory:
         with pytest.raises(ValueError, match="Missing 'company' in routing decision"):
             InterviewFactory.create_interview_orchestrator(routing_decision)
 
-    def test_create_system_design_invalid_company(self):
-        """Test system design with invalid company raises ValueError"""
-        routing_decision = {"interview_type": "system_design", "company": "invalid_company"}
-        with pytest.raises(ValueError, match="Unknown company"):
-            InterviewFactory.create_interview_orchestrator(routing_decision)
+    def test_create_system_design_unknown_company_uses_default(self):
+        """Test system design with unknown company falls back to default tools"""
+        routing_decision = {"interview_type": "system_design", "company": "unknown_company"}
+        orchestrator = InterviewFactory.create_interview_orchestrator(routing_decision)
 
-    def test_create_system_design_google_not_implemented(self):
-        """Test system design with Google raises NotImplementedError"""
+        # Should successfully create orchestrator with default tools
+        assert isinstance(orchestrator, SystemDesignOrchestrator)
+        assert orchestrator.design_agent is not None
+
+    def test_create_system_design_google_uses_remote_agent(self):
+        """Test system design with Google creates orchestrator with remote agent"""
         routing_decision = {"interview_type": "system_design", "company": "google"}
-        with pytest.raises(NotImplementedError, match="Tools for google not yet implemented"):
-            InterviewFactory.create_interview_orchestrator(routing_decision)
+        orchestrator = InterviewFactory.create_interview_orchestrator(routing_decision)
+
+        # Should successfully create orchestrator with Google's remote agent
+        assert isinstance(orchestrator, SystemDesignOrchestrator)
+        assert orchestrator.design_agent is not None

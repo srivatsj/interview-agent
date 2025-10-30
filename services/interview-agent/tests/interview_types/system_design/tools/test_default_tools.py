@@ -1,16 +1,14 @@
-"""Tests for AmazonSystemDesignTools"""
+"""Tests for DefaultSystemDesignTools"""
 
-from interview_agent.interview_types.system_design.providers import (
-    AmazonSystemDesignTools,
-)
+from interview_agent.interview_types.system_design.tools import DefaultSystemDesignTools
 
 
-class TestAmazonSystemDesignTools:
-    """Test Amazon system design tools"""
+class TestDefaultSystemDesignTools:
+    """Test default system design tools"""
 
     def test_get_phases(self):
         """Test get_phases returns correct phases"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
 
         phases = tools.get_phases()
 
@@ -21,7 +19,7 @@ class TestAmazonSystemDesignTools:
 
     def test_get_context_for_data_design(self):
         """Test get_context returns context for data design"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
 
         context = tools.get_context("data_design")
 
@@ -30,7 +28,7 @@ class TestAmazonSystemDesignTools:
 
     def test_get_context_for_unknown_phase(self):
         """Test get_context handles unknown phase"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
 
         context = tools.get_context("unknown_phase")
 
@@ -38,7 +36,7 @@ class TestAmazonSystemDesignTools:
 
     def test_get_context_for_get_problem(self):
         """Test get_context returns context for get_problem phase"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
 
         context = tools.get_context("get_problem")
 
@@ -47,7 +45,7 @@ class TestAmazonSystemDesignTools:
 
     def test_evaluate_with_good_coverage(self):
         """Test evaluate returns next_phase with good keyword coverage"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
         conversation = [
             {
                 "role": "user",
@@ -58,19 +56,19 @@ class TestAmazonSystemDesignTools:
             },
         ]
 
-        result = tools.evaluate("problem_clarification", conversation)
+        result = tools.evaluate_phase("problem_clarification", conversation)
 
         assert result["decision"] == "next_phase"
         assert result["score"] >= 6  # At least 60% coverage
 
     def test_evaluate_with_poor_coverage(self):
         """Test evaluate returns continue with poor keyword coverage"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
         conversation = [
             {"role": "user", "content": "I think we should use a database"},
         ]
 
-        result = tools.evaluate("problem_clarification", conversation)
+        result = tools.evaluate_phase("problem_clarification", conversation)
 
         assert result["decision"] == "continue"
         assert result["score"] < 6  # Less than 60% coverage
@@ -79,16 +77,16 @@ class TestAmazonSystemDesignTools:
 
     def test_evaluate_with_empty_conversation(self):
         """Test evaluate handles empty conversation"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
 
-        result = tools.evaluate("data_design", [])
+        result = tools.evaluate_phase("data_design", [])
 
         assert result["decision"] == "continue"
         assert result["score"] == 0
 
     def test_calculate_coverage(self):
         """Test coverage calculation"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
 
         conversation = [
             {"role": "user", "content": "We need indexing and sharding"},
@@ -103,7 +101,7 @@ class TestAmazonSystemDesignTools:
 
     def test_find_missing_keywords(self):
         """Test finding keywords not mentioned in conversation"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
 
         conversation = [
             {"role": "user", "content": "We will use database with indexing"},

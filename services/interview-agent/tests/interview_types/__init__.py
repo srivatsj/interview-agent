@@ -1,0 +1,1 @@
+"""Interview types tests package."""

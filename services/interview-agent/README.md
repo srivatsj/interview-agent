@@ -1,17 +1,46 @@
-# Interview Agent – Interview Router
+# Interview Agent – Interview Orchestrator
 
-Custom Google ADK agent orchestrating multi-phase system-design interviews with deterministic control flow.
+Central Google ADK agent orchestrating multi-phase interviews using remote specialized agents via A2A protocol.
+
+## Architecture
+
+The interview-agent acts as an orchestrator that:
+- Routes interviews based on company and type
+- Delegates to remote interview agents (google-agent, meta-agent) via A2A protocol
+- Falls back to local tools for legacy support (amazon)
+
+```
+interview-agent (orchestrator)
+    ├── Routing Agent (LLM-powered)
+    └── Interview Factory
+        ├── Remote: google-agent (A2A) → http://localhost:10123
+        ├── Remote: meta-agent (A2A) → http://localhost:10125
+        └── Local: amazon-tools (legacy)
+```
 
 ## Quick Start
 
 1. **Prerequisites:** Python 3.10+, [uv](https://github.com/astral-sh/uv), and a Google API key with Gemini access.
-2. **Create a virtual environment** (from `services/interview-agent`):
+
+2. **Start remote agents** (in separate terminals):
+   ```bash
+   # Terminal 1: Google agent
+   cd services/google-agent
+   uv run python -m google_agent
+
+   # Terminal 2: Meta agent
+   cd services/meta-agent
+   uv run python -m meta_agent
+   ```
+
+3. **Install interview-agent** (from `services/interview-agent`):
    ```bash
    uv venv
    source .venv/bin/activate
    uv pip install -e ".[dev]"
    ```
-3. **Configure secrets:** export `GOOGLE_API_KEY` or load it from a local `.env` (never commit secrets).
+
+4. **Configure secrets:** export `GOOGLE_API_KEY` or load it from a local `.env` (never commit secrets).
 
 ## Running Tests
 
@@ -77,7 +106,20 @@ tests/
 
 ## Architecture Highlights
 
-- **Deterministic routing:** Root agent delegates based on persisted routing decisions.
-- **Phase orchestration:** System-design interviews flow through intro → design phases → closing.
-- **Tool-backed state:** Providers encapsulate company-specific prompts, tools, and completion criteria.
-- **Record/replay testing:** Integration coverage stays cheap and deterministic by reusing captured LLM responses.
+- **A2A Protocol Integration:** Communicates with remote specialized agents via Agent-to-Agent protocol
+- **Deterministic routing:** Root agent delegates based on persisted routing decisions
+- **Phase orchestration:** System-design interviews flow through intro → design phases → closing
+- **Hybrid approach:** Remote agents (google, meta) via A2A + legacy local tools (amazon)
+- **Record/replay testing:** Integration coverage stays cheap and deterministic by reusing captured LLM responses
+
+## Remote Agent Configuration
+
+Remote agent URLs can be configured via environment variables:
+```bash
+export GOOGLE_SYSTEM_DESIGN_AGENT_URL=http://localhost:10123
+export META_SYSTEM_DESIGN_AGENT_URL=http://localhost:10125
+```
+
+Default URLs:
+- `google`: http://localhost:10123 (google-agent)
+- `meta`: http://localhost:10125 (meta-agent)

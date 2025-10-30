@@ -54,10 +54,19 @@ def get_intro_instruction(ctx: ReadonlyContext) -> str:
     )
 
 
-intro_agent = Agent(
-    model=MODEL_NAME,
-    name="intro_agent",
-    description="Greets candidate, collects background information, and explains interview format",
-    tools=[save_candidate_info],
-    instruction=get_intro_instruction,
-)
+def create_intro_agent() -> Agent:
+    """Create a new intro agent instance.
+
+    Returns a new agent instance to avoid parent agent conflicts.
+    """
+    return Agent(
+        model=MODEL_NAME,
+        name="intro_agent",
+        description="Greets candidate, collects background information, and explains interview format",
+        tools=[save_candidate_info],
+        instruction=get_intro_instruction,
+    )
+
+
+# Module-level instance for backward compatibility
+intro_agent = create_intro_agent()

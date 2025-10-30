@@ -4,8 +4,8 @@ import logging
 
 from google.adk.agents import BaseAgent
 
-from ..shared.agents.closing_agent import closing_agent
-from ..shared.agents.intro_agent import intro_agent
+from ..shared.agents.closing_agent import create_closing_agent
+from ..shared.agents.intro_agent import create_intro_agent
 from .system_design.company_factory import CompanyFactory
 from .system_design.orchestrator import SystemDesignOrchestrator
 from .system_design.system_design_agent import SystemDesignAgent
@@ -43,7 +43,9 @@ class InterviewFactory:
         company_lower = company.lower()
 
         if interview_type_lower == "system_design":
-            return InterviewFactory._create_system_design_orchestrator(company_lower)
+            return InterviewFactory._create_system_design_orchestrator(
+                company_lower, interview_type_lower
+            )
         elif interview_type_lower == "coding":
             raise NotImplementedError("Coding interviews not yet implemented")
         elif interview_type_lower == "behavioral":
@@ -55,17 +57,20 @@ class InterviewFactory:
             )
 
     @staticmethod
-    def _create_system_design_orchestrator(company: str) -> SystemDesignOrchestrator:
+    def _create_system_design_orchestrator(
+        company: str, interview_type: str
+    ) -> SystemDesignOrchestrator:
         """Create system design orchestrator with company-specific agent.
 
         Args:
             company: Company name
+            interview_type: Interview type
 
         Returns:
             SystemDesignOrchestrator with company-specific design agent
         """
         # Get company-specific tools
-        tool_provider = CompanyFactory.get_tools(company)
+        tool_provider = CompanyFactory.get_tools(company, interview_type)
 
         # Create design agent with tools
         design_agent = SystemDesignAgent(
@@ -73,8 +78,9 @@ class InterviewFactory:
             name=f"{company}_system_design_orchestrator",
         )
 
+        # Create new agent instances to avoid parent conflicts
         return SystemDesignOrchestrator(
-            intro_agent=intro_agent,
+            intro_agent=create_intro_agent(),
             design_agent=design_agent,
-            closing_agent=closing_agent,
+            closing_agent=create_closing_agent(),
         )

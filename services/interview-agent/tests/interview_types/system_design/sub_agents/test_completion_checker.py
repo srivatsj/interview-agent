@@ -7,12 +7,10 @@ from google.adk.events import Event
 from google.adk.sessions import Session
 from google.genai.types import Content, Part
 
-from interview_agent.interview_types.system_design.providers import (
-    AmazonSystemDesignTools,
-)
 from interview_agent.interview_types.system_design.sub_agents import (
     PhaseCompletionChecker,
 )
+from interview_agent.interview_types.system_design.tools import DefaultSystemDesignTools
 
 
 class TestPhaseCompletionChecker:
@@ -20,7 +18,7 @@ class TestPhaseCompletionChecker:
 
     def test_initialization(self):
         """Test checker initializes correctly"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
         checker = PhaseCompletionChecker(tools)
 
         assert checker.name == "phase_completion_checker"
@@ -28,7 +26,7 @@ class TestPhaseCompletionChecker:
 
     def test_extract_conversation_history_empty(self):
         """Test extraction with no events"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
         checker = PhaseCompletionChecker(tools)
 
         class MockContext:
@@ -47,7 +45,7 @@ class TestPhaseCompletionChecker:
 
     def test_extract_conversation_history_with_messages(self):
         """Test extraction with multiple messages"""
-        tools = AmazonSystemDesignTools()
+        tools = DefaultSystemDesignTools()
         checker = PhaseCompletionChecker(tools)
 
         class MockContext:
@@ -80,7 +78,7 @@ class TestPhaseCompletionChecker:
     async def test_run_with_phase_complete(self):
         """Test checker escalates when phase is complete"""
         tools = Mock()
-        tools.evaluate.return_value = {
+        tools.evaluate_phase.return_value = {
             "decision": "next_phase",
             "score": 8,
             "message": "Phase complete",
@@ -110,7 +108,7 @@ class TestPhaseCompletionChecker:
     async def test_run_with_phase_incomplete(self):
         """Test checker continues when phase incomplete"""
         tools = Mock()
-        tools.evaluate.return_value = {
+        tools.evaluate_phase.return_value = {
             "decision": "continue",
             "score": 3,
             "gaps": ["scalability"],
@@ -140,7 +138,7 @@ class TestPhaseCompletionChecker:
     async def test_turn_count_increments(self):
         """Test turn count increments on each check"""
         tools = Mock()
-        tools.evaluate.return_value = {"decision": "continue", "score": 2}
+        tools.evaluate_phase.return_value = {"decision": "continue", "score": 2}
         checker = PhaseCompletionChecker(tools)
 
         class MockContext:

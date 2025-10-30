@@ -1,5 +1,7 @@
-"""
-Amazon System Design Interview Tools
+"""Default local implementation for system design interviews.
+
+Used as fallback when no remote A2A agent is available for a company.
+Contains keyword-based phase evaluation - simple but functional.
 """
 
 import logging
@@ -74,12 +76,51 @@ EVALUATION_KEYWORDS = {
 }
 
 
-class AmazonSystemDesignTools:
-    """Amazon's system design interview tool provider"""
+class DefaultSystemDesignTools:
+    """Default local system design interview tools.
+
+    This is a simple, keyword-based implementation used when:
+    - No remote agent exists for a company
+    - Remote agent is unavailable
+    - Testing/development without remote services
+    """
+
+    def __init__(self):
+        """Initialize default tools."""
+        self._candidate_info = {}
+
+    def get_question(self) -> str:
+        """Get an interview question tailored to candidate background.
+
+        Returns:
+            Interview question based on candidate experience
+        """
+        logger.info("Generating interview question")
+
+        # Use candidate info if available
+        years_experience = self._candidate_info.get("years_experience", 3)
+
+        # Generate appropriate question based on experience
+        if years_experience < 2:
+            return (
+                "Design a URL shortening service like bit.ly. "
+                "Focus on the basic functionality: creating short URLs and redirecting users."
+            )
+        elif years_experience < 5:
+            return (
+                "Design a URL shortening service like bit.ly that can handle millions of users. "
+                "Consider scalability, data storage, and how to generate unique short URLs."
+            )
+        else:
+            return (
+                "Design a highly scalable URL shortening service like bit.ly that can handle "
+                "billions of URLs and high read/write throughput. Consider sharding, caching, "
+                "rate limiting, analytics, and how to handle geographic distribution."
+            )
 
     def get_phases(self) -> list[dict]:
         """Get interview phases in order"""
-        logger.info("Getting Amazon system design phases")
+        logger.info("Getting default system design phases")
         return PHASES
 
     def get_context(self, phase_id: str) -> str:
@@ -87,7 +128,7 @@ class AmazonSystemDesignTools:
         logger.info(f"Getting context for phase: {phase_id}")
         return PHASE_CONTEXTS.get(phase_id, "Discuss system design")
 
-    def evaluate(self, phase_id: str, conversation_history: list[dict]) -> dict:
+    def evaluate_phase(self, phase_id: str, conversation_history: list[dict]) -> dict:
         """Evaluate phase completion and decide next action"""
         logger.info(f"Evaluating phase: {phase_id}")
 

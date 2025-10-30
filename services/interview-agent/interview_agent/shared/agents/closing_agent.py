@@ -30,9 +30,18 @@ def get_closing_instruction(ctx: ReadonlyContext) -> str:
     )
 
 
-closing_agent = Agent(
-    model=MODEL_NAME,
-    name="closing_agent",
-    description="Wraps up the interview, answers candidate questions, and provides encouragement",
-    instruction=get_closing_instruction,
-)
+def create_closing_agent() -> Agent:
+    """Create a new closing agent instance.
+
+    Returns a new agent instance to avoid parent agent conflicts.
+    """
+    return Agent(
+        model=MODEL_NAME,
+        name="closing_agent",
+        description="Wraps up the interview, answers candidate questions, and provides encouragement",
+        instruction=get_closing_instruction,
+    )
+
+
+# Module-level instance for backward compatibility
+closing_agent = create_closing_agent()

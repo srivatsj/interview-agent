@@ -33,7 +33,7 @@ class TestSystemDesignAgentInitialization:
 
     def test_initialization_with_amazon_tools(self):
         """Test initialization with Amazon tools"""
-        tools = CompanyFactory.get_tools("amazon")
+        tools = CompanyFactory.get_tools("test_company", "system_design")
         agent = SystemDesignAgent(tool_provider=tools, name="amazon_system_design_orchestrator")
 
         assert agent.name == "amazon_system_design_orchestrator"
@@ -43,7 +43,7 @@ class TestSystemDesignAgentInitialization:
 
     def test_initialization_with_default_name(self):
         """Test initialization with default name"""
-        tools = CompanyFactory.get_tools("amazon")
+        tools = CompanyFactory.get_tools("test_company", "system_design")
         agent = SystemDesignAgent(tool_provider=tools)
 
         assert agent.name == "system_design_orchestrator"
@@ -52,7 +52,7 @@ class TestSystemDesignAgentInitialization:
 
     def test_phases_loaded(self):
         """Test phases are loaded during initialization"""
-        tools = CompanyFactory.get_tools("amazon")
+        tools = CompanyFactory.get_tools("test_company", "system_design")
         agent = SystemDesignAgent(tool_provider=tools)
 
         # Verify all 6 phases loaded (including get_problem)
@@ -68,7 +68,7 @@ class TestSystemDesignAgentOrchestration:
     @pytest.mark.asyncio
     async def test_starts_first_phase(self):
         """Test orchestrator starts with first phase when phase_idx=0"""
-        tools = CompanyFactory.get_tools("amazon")
+        tools = CompanyFactory.get_tools("test_company", "system_design")
         agent = SystemDesignAgent(tool_provider=tools)
 
         # Start with phase 0
@@ -89,7 +89,7 @@ class TestSystemDesignAgentOrchestration:
     @pytest.mark.asyncio
     async def test_transitions_to_next_phase(self):
         """Test orchestrator transitions to next phase"""
-        tools = CompanyFactory.get_tools("amazon")
+        tools = CompanyFactory.get_tools("test_company", "system_design")
         agent = SystemDesignAgent(tool_provider=tools)
 
         ctx = create_mock_context({"current_phase_idx": 0})
@@ -110,7 +110,7 @@ class TestSystemDesignAgentOrchestration:
     @pytest.mark.asyncio
     async def test_completes_when_all_phases_done(self):
         """Test orchestrator completes when phase_idx >= num_phases"""
-        tools = CompanyFactory.get_tools("amazon")
+        tools = CompanyFactory.get_tools("test_company", "system_design")
         agent = SystemDesignAgent(tool_provider=tools)
 
         # Set phase index beyond last phase (6 phases total, so idx 6 is complete)
@@ -128,7 +128,7 @@ class TestSystemDesignAgentOrchestration:
     @pytest.mark.asyncio
     async def test_runs_middle_phase(self):
         """Test orchestrator can run middle phases"""
-        tools = CompanyFactory.get_tools("amazon")
+        tools = CompanyFactory.get_tools("test_company", "system_design")
         agent = SystemDesignAgent(tool_provider=tools)
 
         # Start at middle phase (requirements is now index 2)
@@ -150,7 +150,7 @@ class TestSystemDesignAgentStateManagement:
     @pytest.mark.asyncio
     async def test_resets_phase_state_each_iteration(self):
         """Test orchestrator resets phase state for each phase"""
-        tools = CompanyFactory.get_tools("amazon")
+        tools = CompanyFactory.get_tools("test_company", "system_design")
         agent = SystemDesignAgent(tool_provider=tools)
 
         ctx = create_mock_context(
