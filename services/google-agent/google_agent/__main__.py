@@ -60,15 +60,6 @@ def build_agent_card(host: str, port: int) -> AgentCard:
                 examples=['{"skill": "get_phases"}'],
             ),
             AgentSkill(
-                id="get_context",
-                name="Describe Phase Expectations",
-                description="Provide guidance for a specific phase by its identifier.",
-                tags=["system-design", "context"],
-                examples=[
-                    '{"skill": "get_context", "args": {"phase_id": "plan_and_scope"}}',
-                ],
-            ),
-            AgentSkill(
                 id="get_question",
                 name="Get Interview Question",
                 description=(
@@ -79,6 +70,15 @@ def build_agent_card(host: str, port: int) -> AgentCard:
                 tags=["question", "interview"],
                 examples=[
                     '{"skill": "get_question"}',
+                ],
+            ),
+            AgentSkill(
+                id="get_context",
+                name="Describe Phase Expectations",
+                description="Provide guidance for a specific phase by its identifier.",
+                tags=["system-design", "context"],
+                examples=[
+                    '{"skill": "get_context", "args": {"phase_id": "plan_and_scope"}}',
                 ],
             ),
             AgentSkill(

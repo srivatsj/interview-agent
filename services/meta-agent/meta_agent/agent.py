@@ -39,7 +39,7 @@ class MetaAgent:
         builder.add_node("get_phases", self._handle_get_phases)
         builder.add_node("get_context", self._handle_get_context)
         builder.add_node("get_question", self._handle_get_question)
-        builder.add_node("evaluate", self._handle_evaluate)
+        builder.add_node("evaluate_phase", self._handle_evaluate_phase)
         builder.add_node("error", self._handle_error)
         builder.add_node("serialize", self._serialize_response)
 
@@ -54,7 +54,7 @@ class MetaAgent:
                 "get_phases": "get_phases",
                 "get_context": "get_context",
                 "get_question": "get_question",
-                "evaluate": "evaluate",
+                "evaluate_phase": "evaluate_phase",
             },
         )
         builder.add_edge("get_supported_interview_types", "serialize")
@@ -62,7 +62,7 @@ class MetaAgent:
         builder.add_edge("get_phases", "serialize")
         builder.add_edge("get_context", "serialize")
         builder.add_edge("get_question", "serialize")
-        builder.add_edge("evaluate", "serialize")
+        builder.add_edge("evaluate_phase", "serialize")
         builder.add_edge("error", "serialize")
         builder.add_edge("serialize", END)
 
@@ -162,7 +162,7 @@ class MetaAgent:
         if skill == "get_question":
             return "get_question"
         if skill in {"evaluate_phase", "evaluate"}:
-            return "evaluate"
+            return "evaluate_phase"
 
         state["error_info"] = {
             "code": "unknown_skill",
@@ -257,7 +257,7 @@ class MetaAgent:
         }
         return state
 
-    def _handle_evaluate(self, state: MetaAgentState) -> MetaAgentState:
+    def _handle_evaluate_phase(self, state: MetaAgentState) -> MetaAgentState:
         args = state.get("args", {})
         phase_id = args.get("phase_id")
         conversation_history = args.get("conversation_history", [])

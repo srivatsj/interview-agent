@@ -119,54 +119,11 @@ class GoogleAgentExecutor(AgentExecutor):
         try:
             # Discovery skill - no session state required
             if skill == "get_supported_interview_types":
-                types = list(self.toolsets.keys())
-                return self._serialize_ok(skill, {"interview_types": types})
+                return await self._handle_get_supported_interview_types(skill)
 
             # Start interview - initializes session state
             if skill == "start_interview":
-                interview_type = args.get("interview_type")
-                candidate_info = args.get("candidate_info", {})
-
-                if not interview_type:
-                    return self._serialize_error(
-                        "missing_interview_type",
-                        "Field 'interview_type' is required for start_interview.",
-                    )
-
-                # Validate interview type
-                if interview_type not in self.toolsets:
-                    supported = list(self.toolsets.keys())
-                    return self._serialize_error(
-                        "unsupported_interview_type",
-                        f"Interview type '{interview_type}' not supported. "
-                        f"Supported: {', '.join(supported)}",
-                    )
-
-                # Update session state via ADK
-                await self._update_session_state(
-                    session,
-                    {
-                        "interview_type": interview_type,
-                        "candidate_info": candidate_info,
-                        "conversation_history": [],
-                    },
-                )
-
-                logger.info(
-                    "Started %s interview for session %s with candidate: %s",
-                    interview_type,
-                    session.id,
-                    candidate_info.get("name", "Unknown"),
-                )
-
-                return self._serialize_ok(
-                    skill,
-                    {
-                        "interview_type": interview_type,
-                        "candidate_info": candidate_info,
-                        "message": f"Interview session started for {interview_type}",
-                    },
-                )
+                return await self._handle_start_interview(skill, args, session)
 
             # All other skills require an active session
             if "interview_type" not in session.state:
@@ -192,48 +149,123 @@ class GoogleAgentExecutor(AgentExecutor):
                 )
 
             if skill == "get_phases":
-                phases = toolset.get_phases()
-                return self._serialize_ok(skill, {"phases": phases})
+                return await self._handle_get_phases(skill, toolset)
 
             if skill == "get_context":
-                phase_id = args.get("phase_id")
-                if not phase_id:
-                    return self._serialize_error(
-                        "missing_phase_id", "Field 'phase_id' is required for get_context."
-                    )
-                context_text = toolset.get_context(phase_id)
-                return self._serialize_ok(skill, {"phase_id": phase_id, "context": context_text})
+                return await self._handle_get_context(skill, args, toolset)
 
             if skill == "get_question":
-                # Get candidate info from session state
-                candidate_info = session.state.get("candidate_info", {})
-                question = toolset.get_question(candidate_info)
-                return self._serialize_ok(skill, {"question": question})
+                return await self._handle_get_question(skill, session, toolset)
 
             if skill in {"evaluate_phase", "evaluate"}:
-                phase_id = args.get("phase_id")
-                history = args.get("conversation_history", [])
-                if not phase_id:
-                    return self._serialize_error(
-                        "missing_phase_id",
-                        "Field 'phase_id' is required for evaluate_phase.",
-                    )
-                if not isinstance(history, list):
-                    return self._serialize_error(
-                        "invalid_history",
-                        "Field 'conversation_history' must be a list of messages.",
-                    )
-
-                # Update session conversation history
-                await self._update_session_state(session, {"conversation_history": history})
-
-                evaluation = toolset.evaluate(phase_id, history)
-                return self._serialize_ok(skill, {"phase_id": phase_id, "evaluation": evaluation})
+                return await self._handle_evaluate_phase(skill, args, session, toolset)
 
             return self._serialize_error("unknown_skill", f"Unsupported skill '{skill}'.")
         except Exception as exc:
             logger.exception("Skill execution failed for %s", skill)
             return self._serialize_error("execution_error", str(exc))
+
+    async def _handle_get_supported_interview_types(self, skill: str) -> str:
+        """Handle get_supported_interview_types skill."""
+        types = list(self.toolsets.keys())
+        return self._serialize_ok(skill, {"interview_types": types})
+
+    async def _handle_start_interview(
+        self, skill: str, args: dict[str, Any], session: Session
+    ) -> str:
+        """Handle start_interview skill."""
+        interview_type = args.get("interview_type")
+        candidate_info = args.get("candidate_info", {})
+
+        if not interview_type:
+            return self._serialize_error(
+                "missing_interview_type",
+                "Field 'interview_type' is required for start_interview.",
+            )
+
+        # Validate interview type
+        if interview_type not in self.toolsets:
+            supported = list(self.toolsets.keys())
+            return self._serialize_error(
+                "unsupported_interview_type",
+                f"Interview type '{interview_type}' not supported. "
+                f"Supported: {', '.join(supported)}",
+            )
+
+        # Update session state via ADK
+        await self._update_session_state(
+            session,
+            {
+                "interview_type": interview_type,
+                "candidate_info": candidate_info,
+                "conversation_history": [],
+            },
+        )
+
+        logger.info(
+            "Started %s interview for session %s with candidate: %s",
+            interview_type,
+            session.id,
+            candidate_info.get("name", "Unknown"),
+        )
+
+        return self._serialize_ok(
+            skill,
+            {
+                "interview_type": interview_type,
+                "candidate_info": candidate_info,
+                "message": f"Interview session started for {interview_type}",
+            },
+        )
+
+    async def _handle_get_phases(self, skill: str, toolset: InterviewToolset) -> str:
+        """Handle get_phases skill."""
+        phases = toolset.get_phases()
+        return self._serialize_ok(skill, {"phases": phases})
+
+    async def _handle_get_context(
+        self, skill: str, args: dict[str, Any], toolset: InterviewToolset
+    ) -> str:
+        """Handle get_context skill."""
+        phase_id = args.get("phase_id")
+        if not phase_id:
+            return self._serialize_error(
+                "missing_phase_id", "Field 'phase_id' is required for get_context."
+            )
+        context_text = toolset.get_context(phase_id)
+        return self._serialize_ok(skill, {"phase_id": phase_id, "context": context_text})
+
+    async def _handle_get_question(
+        self, skill: str, session: Session, toolset: InterviewToolset
+    ) -> str:
+        """Handle get_question skill."""
+        # Get candidate info from session state
+        candidate_info = session.state.get("candidate_info", {})
+        question = toolset.get_question(candidate_info)
+        return self._serialize_ok(skill, {"question": question})
+
+    async def _handle_evaluate_phase(
+        self, skill: str, args: dict[str, Any], session: Session, toolset: InterviewToolset
+    ) -> str:
+        """Handle evaluate_phase skill."""
+        phase_id = args.get("phase_id")
+        history = args.get("conversation_history", [])
+        if not phase_id:
+            return self._serialize_error(
+                "missing_phase_id",
+                "Field 'phase_id' is required for evaluate_phase.",
+            )
+        if not isinstance(history, list):
+            return self._serialize_error(
+                "invalid_history",
+                "Field 'conversation_history' must be a list of messages.",
+            )
+
+        # Update session conversation history
+        await self._update_session_state(session, {"conversation_history": history})
+
+        evaluation = toolset.evaluate(phase_id, history)
+        return self._serialize_ok(skill, {"phase_id": phase_id, "evaluation": evaluation})
 
     @staticmethod
     def _serialize_ok(skill: str, result: dict[str, Any]) -> str:
