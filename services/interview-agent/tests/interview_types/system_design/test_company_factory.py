@@ -2,7 +2,7 @@
 
 from unittest.mock import patch
 
-from interview_agent.interview_types.system_design.company_factory import CompanyFactory
+from interview_agent.shared.factories import CompanyFactory
 from interview_agent.shared.agent_providers import LocalAgentProvider, RemoteAgentProvider
 
 
@@ -51,7 +51,7 @@ class TestCompanyFactoryA2ARouting:
     """Advanced A2A routing tests with mocking."""
 
     @patch(
-        "interview_agent.interview_types.system_design.company_factory.AgentProviderRegistry.get_agent_url"
+        "interview_agent.shared.factories.company_factory.AgentProviderRegistry.get_agent_url"
     )
     def test_get_tools_remote_agent_priority(self, mock_get_agent_url):
         """Test that remote agent is checked first before fallback."""
@@ -66,7 +66,7 @@ class TestCompanyFactoryA2ARouting:
         mock_get_agent_url.assert_called_once_with("amazon", "system_design")
 
     @patch(
-        "interview_agent.interview_types.system_design.company_factory.AgentProviderRegistry.get_agent_url"
+        "interview_agent.shared.factories.company_factory.AgentProviderRegistry.get_agent_url"
     )
     def test_get_tools_fallback_when_no_remote(self, mock_get_agent_url):
         """Test that default tools are used when no remote agent exists."""
@@ -80,7 +80,7 @@ class TestCompanyFactoryA2ARouting:
         mock_get_agent_url.assert_called_once_with("amazon", "system_design")
 
     @patch(
-        "interview_agent.interview_types.system_design.company_factory.AgentProviderRegistry.get_agent_url"
+        "interview_agent.shared.factories.company_factory.AgentProviderRegistry.get_agent_url"
     )
     def test_get_tools_custom_env_override(self, mock_get_agent_url):
         """Test that environment variable overrides work through registry."""

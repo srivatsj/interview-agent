@@ -87,7 +87,7 @@ class TestCompleteInterviewFlow:
     async def test_complete_interview_journey(self, runner, session_service, test_session):
         """Test full interview from greeting to completion with realistic multi-turn."""
         with patch(
-            "interview_agent.interview_types.system_design.company_factory.AmazonSystemDesignTools",
+            "interview_agent.shared.factories.company_factory.DefaultSystemDesignTools",
             MockAmazonSystemDesignTools,
         ):
             with LLMRecorder("test_complete_interview_journey"):

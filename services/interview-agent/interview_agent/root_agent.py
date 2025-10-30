@@ -14,8 +14,8 @@ from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event
 from google.adk.tools import ToolContext
 
-from .interview_types.interview_factory import InterviewFactory
 from .shared.constants import MODEL_NAME, SUPPORTED_COMPANIES, SUPPORTED_INTERVIEW_TYPES
+from .shared.factories import InterviewFactory
 from .shared.prompts.prompt_loader import load_prompt
 from .shared.schemas import RoutingDecision
 

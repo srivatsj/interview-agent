@@ -2,7 +2,7 @@
 
 import pytest
 
-from interview_agent.interview_types.interview_factory import InterviewFactory
+from interview_agent.shared.factories import InterviewFactory
 from interview_agent.interview_types.system_design.orchestrator import (
     SystemDesignOrchestrator,
 )

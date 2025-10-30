@@ -91,9 +91,13 @@ interview_agent/
 │       ├── orchestrator.py               # Coordinates interview phases
 │       ├── system_design_agent.py        # Company-specific orchestration
 │       ├── phase_agent.py                # LLM-driven phase management
-│       └── providers/                    # Tool definitions per company
+│       └── tools/                        # Tool definitions (local fallbacks)
 ├── shared/
 │   ├── agents/                           # Intro/closing reusable agents
+│   ├── agent_providers/                  # Remote A2A and local agent providers
+│   ├── factories/                        # Interview and company factory patterns
+│   │   ├── interview_factory.py          # Creates interview orchestrators
+│   │   └── company_factory.py            # Routes to remote/local agents
 │   ├── prompts/                          # External prompt templates
 │   ├── schemas/                          # Pydantic data contracts
 │   └── constants.py

@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from interview_agent.interview_types.system_design.company_factory import CompanyFactory
+from interview_agent.shared.factories import CompanyFactory
 from interview_agent.interview_types.system_design.system_design_agent import (
     SystemDesignAgent,
 )
