@@ -2,8 +2,8 @@
 
 from unittest.mock import patch
 
-from interview_agent.shared.factories import CompanyFactory
 from interview_agent.shared.agent_providers import LocalAgentProvider, RemoteAgentProvider
+from interview_agent.shared.factories import CompanyFactory
 
 
 class TestCompanyFactoryBasic:

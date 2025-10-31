@@ -37,7 +37,9 @@ class TestSetRoutingDecision:
         ctx.state = {}
         result = RootCustomAgent.set_routing_decision("invalid_company", "system_design", ctx)
 
-        assert "Error: Invalid company" in result
+        assert "Error:" in result
+        assert "not available" in result
+        assert "invalid_company system_design" in result
 
     def test_invalid_interview_type(self):
         """Test invalid interview type returns error"""
@@ -45,7 +47,9 @@ class TestSetRoutingDecision:
         ctx.state = {}
         result = RootCustomAgent.set_routing_decision("google", "invalid_type", ctx)
 
-        assert "Error: Invalid interview type" in result
+        assert "Error:" in result
+        assert "not available" in result
+        assert "google invalid_type" in result
 
     def test_valid_routing(self):
         """Test valid routing saves to state"""

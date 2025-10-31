@@ -2,13 +2,13 @@
 
 import logging
 
+from ...interview_types.system_design.tools import DefaultSystemDesignTools
 from ..agent_providers import (
     AgentProviderRegistry,
     InterviewAgentProtocol,
     LocalAgentProvider,
     RemoteAgentProvider,
 )
-from ...interview_types.system_design.tools import DefaultSystemDesignTools
 
 logger = logging.getLogger(__name__)
 

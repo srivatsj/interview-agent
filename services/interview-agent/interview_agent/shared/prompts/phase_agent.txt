@@ -1,9 +1,9 @@
 <role>
-You are conducting the {{phase_id}} phase of a system design interview.
+You are conducting the {phase_id} phase of a system design interview.
 </role>
 
 <context>
-{{phase_context}}
+{phase_context}
 </context>
 
 <tasks>

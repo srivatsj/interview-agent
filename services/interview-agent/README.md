@@ -118,12 +118,34 @@ tests/
 
 ## Remote Agent Configuration
 
-Remote agent URLs can be configured via environment variables:
+The interview agent dynamically discovers remote agents via environment variables. Copy `.env.example` to `.env` and configure:
+
 ```bash
-export GOOGLE_SYSTEM_DESIGN_AGENT_URL=http://localhost:10123
-export META_SYSTEM_DESIGN_AGENT_URL=http://localhost:10125
+# Required: List of agents to configure
+INTERVIEW_AGENTS=google,meta
+
+# For each agent, configure URL and supported interview types
+GOOGLE_AGENT_URL=http://localhost:10123
+GOOGLE_AGENT_TYPES=system_design,coding
+GOOGLE_AGENT_DESCRIPTION=Google-style interviewer  # Optional
+
+META_AGENT_URL=http://localhost:10125
+META_AGENT_TYPES=system_design
+META_AGENT_DESCRIPTION=Meta-style interviewer  # Optional
 ```
 
-Default URLs:
-- `google`: http://localhost:10123 (google-agent)
-- `meta`: http://localhost:10125 (meta-agent)
+### Adding New Agents
+
+To add a new remote agent (e.g., `amazon`):
+
+1. Add the agent name to `INTERVIEW_AGENTS`: `INTERVIEW_AGENTS=google,meta,amazon`
+2. Configure the agent's environment variables:
+   ```bash
+   AMAZON_AGENT_URL=http://localhost:10126
+   AMAZON_AGENT_TYPES=system_design,behavioral
+   AMAZON_AGENT_DESCRIPTION=Amazon-style interviewer  # Optional
+   ```
+3. Start the remote agent on the configured port
+4. Restart the interview-agent to pick up the new configuration
+
+The registry will automatically validate all required environment variables on startup.

@@ -11,10 +11,12 @@ from typing import AsyncGenerator
 from dotenv import load_dotenv
 from google.adk.agents import Agent, BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
+from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.events import Event
 from google.adk.tools import ToolContext
 
-from .shared.constants import MODEL_NAME, SUPPORTED_COMPANIES, SUPPORTED_INTERVIEW_TYPES
+from .shared.agent_providers import AgentProviderRegistry
+from .shared.constants import MODEL_NAME
 from .shared.factories import InterviewFactory
 from .shared.prompts.prompt_loader import load_prompt
 from .shared.schemas import RoutingDecision
@@ -35,34 +37,35 @@ class RootCustomAgent(BaseAgent):
     model_config = {"arbitrary_types_allowed": True, "extra": "allow"}
 
     @staticmethod
+    def _get_routing_instruction(ctx: ReadonlyContext) -> str:
+        """Generate routing instruction with available options from registry."""
+        # Get formatted options from registry
+        available_text = AgentProviderRegistry.get_formatted_options()
+        return load_prompt("routing_agent.txt", available_options=available_text)
+
+    @staticmethod
     def set_routing_decision(company: str, interview_type: str, tool_context: ToolContext) -> str:
         """Save the routing decision to session state.
 
         Use this when you've determined which company and interview type the user wants.
 
         Args:
-            company: The company (amazon, google, or apple)
+            company: The company (google, meta, etc.)
             interview_type: The interview type (system_design, coding, or behavioral)
 
         Returns:
             Confirmation message
         """
-        # Validate company
-        if company.lower() not in SUPPORTED_COMPANIES:
-            companies = ", ".join(SUPPORTED_COMPANIES)
-            return f"Error: Invalid company '{company}'. Must be one of: {companies}"
-
-        # Validate interview type
-        if interview_type.lower() not in SUPPORTED_INTERVIEW_TYPES:
-            types = ", ".join(SUPPORTED_INTERVIEW_TYPES)
-            return f"Error: Invalid interview type '{interview_type}'. Must be one of: {types}"
+        # Validate using registry
+        if not AgentProviderRegistry.is_valid_combination(company, interview_type):
+            available = AgentProviderRegistry.get_formatted_options().replace("\n", ", ")
+            return f"Error: '{company} {interview_type}' is not available. Available: {available}"
 
         routing_decision = RoutingDecision(
             company=company.lower(), interview_type=interview_type.lower(), confidence=1.0
         )
 
         # Update state via ToolContext.state
-        # (ADK will automatically handle EventActions.state_delta)
         tool_context.state["routing_decision"] = routing_decision.model_dump()
         logger.info(f"Routing decision saved: {company.lower()} {interview_type.lower()}")
 
@@ -75,7 +78,7 @@ class RootCustomAgent(BaseAgent):
             name="routing_conversation",
             description="Asks user for company and interview type preferences",
             tools=[RootCustomAgent.set_routing_decision],
-            instruction=load_prompt("routing_agent.txt"),
+            instruction=RootCustomAgent._get_routing_instruction,
         )
 
         # Pass sub-agents to BaseAgent constructor

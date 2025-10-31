@@ -42,13 +42,7 @@ class PhaseAgent(BaseAgent):
             Instruction string for the phase
         """
         phase_context = self.tool_provider.get_context(phase_id)
-        template = load_prompt("phase_agent.txt")
-        return (
-            template.replace("{{phase_id}}", phase_id)
-            .replace("{{phase_context}}", phase_context)
-            .replace("{phase_id}", phase_id)
-            .replace("{phase_context}", phase_context)
-        )
+        return load_prompt("phase_agent.txt", phase_id=phase_id, phase_context=phase_context)
 
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         """Create and run LoopAgent for this phase.

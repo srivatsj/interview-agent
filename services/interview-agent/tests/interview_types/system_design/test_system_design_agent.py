@@ -4,10 +4,10 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from interview_agent.shared.factories import CompanyFactory
 from interview_agent.interview_types.system_design.system_design_agent import (
     SystemDesignAgent,
 )
+from interview_agent.shared.factories import CompanyFactory
 
 
 def create_mock_context(state=None):

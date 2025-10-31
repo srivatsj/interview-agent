@@ -20,13 +20,11 @@ def get_closing_instruction(ctx: ReadonlyContext) -> str:
     interview_type = routing_decision.get("interview_type", "INTERVIEW_TYPE")
     candidate_name = candidate_info.get("name", "CANDIDATE")
 
-    # Load the template and substitute the values
-    # Note: template uses {{var}} which becomes {var} after load_prompt's .format() call
-    template = load_prompt("closing_agent.txt")
-    return (
-        template.replace("{routing_decision.company}", company)
-        .replace("{routing_decision.interview_type}", interview_type)
-        .replace("{candidate_info.name}", candidate_name)
+    return load_prompt(
+        "closing_agent.txt",
+        company=company,
+        interview_type=interview_type,
+        candidate_name=candidate_name,
     )
 
 
@@ -38,7 +36,7 @@ def create_closing_agent() -> Agent:
     return Agent(
         model=MODEL_NAME,
         name="closing_agent",
-        description="Wraps up the interview, answers candidate questions, and provides encouragement",
+        description="Wraps up interview, answers questions, and provides encouragement",
         instruction=get_closing_instruction,
     )
 
