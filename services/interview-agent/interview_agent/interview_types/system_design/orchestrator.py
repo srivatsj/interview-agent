@@ -51,12 +51,15 @@ class SystemDesignOrchestrator(BaseAgent):
             async for event in self.intro_agent.run_async(ctx):
                 yield event
 
-            # Transition to design phase
-            logger.info("Intro complete, transitioning to design phase")
-            yield Event(
-                author=self.name,
-                actions=EventActions(state_delta={"interview_phase": "design"}),
-            )
+            # Only transition to design if candidate_info is saved
+            if "candidate_info" in ctx.session.state:
+                logger.info("Intro complete, transitioning to design phase")
+                yield Event(
+                    author=self.name,
+                    actions=EventActions(state_delta={"interview_phase": "design"}),
+                )
+            else:
+                logger.info("Candidate info not yet collected, staying in intro phase")
 
         elif phase == "design":
             async for event in self.design_agent.run_async(ctx):

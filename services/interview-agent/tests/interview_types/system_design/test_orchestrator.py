@@ -89,8 +89,13 @@ class TestSystemDesignOrchestrator:
             intro_agent=intro_agent, design_agent=design_agent, closing_agent=closing_agent
         )
 
-        # Create context with intro phase
-        ctx = create_mock_context({"interview_phase": "intro"})
+        # Create context with intro phase AND candidate_info (required for transition)
+        ctx = create_mock_context(
+            {
+                "interview_phase": "intro",
+                "candidate_info": {"name": "Test User", "years_experience": 5},
+            }
+        )
 
         # Execute orchestrator and collect events
         events = []

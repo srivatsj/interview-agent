@@ -15,7 +15,9 @@ Usage:
 import time
 
 from google.adk.events import Event, EventActions
+from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
+from google.genai.types import Content, Part
 
 
 async def create_fresh_session(
@@ -151,3 +153,52 @@ async def create_session_with_candidate_info(
     await session_service.append_event(session, event)
 
     return session
+
+
+def create_user_message(text: str) -> Content:
+    """Create a user message for ADK runner.
+
+    Args:
+        text: Message text content
+
+    Returns:
+        Content object with user role and text part
+    """
+    return Content(role="user", parts=[Part(text=text)])
+
+
+async def send_message(runner: Runner, session, message: str):
+    """Send a message and consume all events.
+
+    Args:
+        runner: ADK Runner instance
+        session: Session object with user_id and session_id
+        message: Message text to send
+
+    Returns:
+        None (events are consumed)
+    """
+    async for _ in runner.run_async(
+        user_id=session.user_id,
+        session_id=session.id,
+        new_message=create_user_message(message),
+    ):
+        pass
+
+
+async def get_session_state(session_service: InMemorySessionService, session):
+    """Get current session state.
+
+    Args:
+        session_service: Session service instance
+        session: Session object
+
+    Returns:
+        Dictionary of current session state
+    """
+    updated_session = await session_service.get_session(
+        app_name=session.app_name,
+        user_id=session.user_id,
+        session_id=session.id,
+    )
+    return updated_session.state

@@ -1,30 +1,45 @@
-# Interview Agent Catalog
-
-| Agent | Purpose | Key Features | Requirements |
-| ----- | ------- | ------------ | ------------ |
-| `RootCustomAgent` | Main orchestrator for multi-phase system design interviews using Google ADK. | Deterministic routing, phase orchestration, tool-backed state, record/replay testing. Company-specific interview flows (Amazon, Google, Meta). | Google API key with Gemini access |
+# Interview Agent Architecture
 
 ## Agent Hierarchy
 
+```
+RootCustomAgent (Routing)
+    └── SystemDesignOrchestrator
+        ├── IntroAgent (collect candidate info)
+        ├── SystemDesignAgent (multi-phase interview)
+        │   ├── PhaseAgent (LLM-driven phase management)
+        │   └── ToolProvider (local or remote A2A)
+        └── ClosingAgent (feedback & next steps)
+```
+
+## Key Components
+
 ### Root Agent
-- **RootCustomAgent**: Entrypoint that delegates based on persisted routing decisions
+- **RootCustomAgent**: Routes to appropriate interview based on company + type
+- Uses `set_routing_decision` tool to persist routing state
 
-### Interview Types
-- **System Design Orchestrator**: Coordinates interview phases (intro → design phases → closing)
-- **Phase Agent**: LLM-driven phase management
-- **Company-Specific Agents**: Amazon, Google, Meta interview styles
+### System Design Orchestrator
+- **Phase flow**: intro → design → closing
+- **State-based transitions**: Checks for `candidate_info` before moving to design
+- **Supports**: Google (remote A2A), Meta (remote A2A), Amazon (local tools)
 
-### Shared Agents
-- **Intro Agent**: Reusable introduction phase
-- **Closing Agent**: Reusable closing phase
+### Reusable Agents
+- **IntroAgent**: Collects candidate background via `save_candidate_info` tool
+- **ClosingAgent**: Provides feedback and next steps
 
-## Architecture
+### Design Agent
+- **PhaseAgent**: LLM-driven multi-turn conversations per phase
+- **Tool Providers**:
+  - Remote (google, meta): A2A protocol at `localhost:10123`, `localhost:10125`
+  - Local (amazon): Legacy local tool implementation
 
-The interview agent uses:
-- **Deterministic routing** from root agent
-- **Phase orchestration** through system-design flows
-- **Tool-backed state** with company-specific providers
-- **Record/replay testing** for integration coverage
+## State Management
+
+Session state tracks:
+- `routing_decision` - Company and interview type
+- `candidate_info` - Name, experience, domain, projects
+- `interview_phase` - Current phase (intro, design, closing, done)
+- `current_phase` / `current_phase_idx` - Design phase progression
 
 ## Project Structure
 

@@ -60,17 +60,27 @@ pytest tests/interview_types/system_design/test_orchestrator.py -v
 pytest tests/ --ignore=tests/integration/ --cov=interview_agent --cov-report=term-missing
 ```
 
-### Integration Tests (record/replay)
-Use real Gemini calls only when refreshing fixtures.
+### Integration Tests
+Integration tests verify complete interview flow with real LLM calls. Tests are split by phase to minimize costs.
 
 ```bash
-# Record new responses (incurs API cost, ~20-30s)
-RECORD_MODE=true pytest tests/integration/test_interview_flow.py -v
-
-# Replay existing recordings (offline, ~5s)
+# Run all integration tests
 pytest tests/integration/test_interview_flow.py -v
-```
-Re-run in record mode whenever prompts, control flow, or tool contracts change. Delete stale fixtures via `rm tests/integration/recordings/*.json` before re-recording.
+
+# Run specific phase
+pytest tests/integration/test_interview_flow.py::TestRoutingPhase -v
+pytest tests/integration/test_interview_flow.py::TestIntroPhase -v
+pytest tests/integration/test_interview_flow.py::TestDesignPhase -v
+
+# Run with logs (shows tool calls, state changes)
+pytest tests/integration/test_interview_flow.py::TestRoutingPhase -v -s --log-cli-level=INFO```
+
+**What's tested:**
+- ✅ Routing: Multi-turn conversation, `set_routing_decision` tool call
+- ✅ Intro: Candidate info collection, `save_candidate_info` tool call, phase transitions
+- ✅ Design: Multi-turn design conversations, phase progression, remote agent integration
+
+**Test independence:** Later tests use helpers (`create_session_with_routing`, `create_session_with_candidate_info`) to bypass earlier phases, reducing LLM costs and test dependencies.
 
 ## Code Quality
 
