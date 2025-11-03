@@ -1,0 +1,18 @@
+[
+  {
+    "role": "user",
+    "text": "My name is Sarah Johnson, I have 8 years of professional experience"
+  },
+  {
+    "role": "intro_agent",
+    "text": "Hello Sarah Johnson! Thanks for joining today's system design interview. I'm excited to work through a problem with you.\n\nYou have 8 years of professional experience, that's great! What areas or domains have you primarily worked in? And could you share one or two notable projects you've worked on that you're particularly proud of?"
+  },
+  {
+    "role": "user",
+    "text": "My domain expertise is backend distributed systems. I scaled Netflix microservices to 100M users and built payment infrastructure at Stripe"
+  },
+  {
+    "role": "intro_agent",
+    "text": "That sounds incredibly impressive, Sarah! Scaling Netflix microservices to 100M users and building payment infrastructure at Stripe are fantastic achievements.\n\nHere's how today's system design interview will work: We'll go through a problem together, starting with clarifying the requirements and defining the scope. Then, we'll move into designing the data model, API, and overall architecture. We'll also have time to deep dive into specific components. It's a collaborative discussion, not a test, so please feel free to ask questions and think out loud. The whole interview will take about 45-60 minutes.\n\nAre you ready to begin?"
+  }
+]

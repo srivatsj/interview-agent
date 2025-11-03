@@ -11,11 +11,14 @@ Each test uses LLM recording/replay for deterministic, cost-free testing.
 Tests can piggyback on previous test recordings for flow continuity.
 """
 
+import json
+from pathlib import Path
+
 import pytest
 import pytest_asyncio
 import respx
 from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
+from google.adk.sessions import InMemorySessionService, Session
 from httpx import Response
 
 from interview_agent.root_agent import RootCustomAgent
@@ -105,6 +108,52 @@ def mock_google_agent():
         respx_mock.route().pass_through()
 
         yield
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def log_conversation(session_service, request):
+    """Automatically log full conversation after each test."""
+    sessions_to_log = []
+
+    # Store original create_session to intercept session creation
+    original_create = session_service.create_session
+
+    async def track_session(*args, **kwargs):
+        session = await original_create(*args, **kwargs)
+        sessions_to_log.append(session)
+        return session
+
+    session_service.create_session = track_session
+
+    yield  # Run test
+
+    # Restore original method
+    session_service.create_session = original_create
+
+    # Save conversations in tests/integration/recording
+    recording_dir = Path(__file__).parent / "recording"
+    recording_dir.mkdir(exist_ok=True)
+
+    for session in sessions_to_log:
+        # Fetch latest session data
+        updated_session = await session_service.get_session(
+            app_name=session.app_name,
+            user_id=session.user_id,
+            session_id=session.id,
+        )
+
+        conversation = []
+        for event in updated_session.events:
+            if event.content and event.content.parts:
+                for part in event.content.parts:
+                    if part.text:
+                        conversation.append({"role": event.author, "text": part.text})
+
+        if conversation:
+            # Use test method name to avoid overwriting
+            filepath = recording_dir / f"{request.node.name}.json"
+            with open(filepath, "w") as f:
+                json.dump(conversation, f, indent=2)
 
 
 @pytest.mark.integration
