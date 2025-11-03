@@ -1,6 +1,7 @@
 """A2A Provider Registry for remote interview agents.
 
 Maps companies/interview types to remote agent endpoints.
+Also provides fallback local options when no remote agents are configured.
 """
 
 import logging
@@ -13,6 +14,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+# Free default agents available to all users
+# These are user-selectable options alongside remote agents
+# Remote agents (google, meta, etc.) may incur costs, but default agents are always free
+DEFAULT_AGENTS = {
+    "default": ["system_design"],
+}
+
 
 
 @dataclass
@@ -127,16 +136,25 @@ class AgentProviderRegistry:
     def get_available_options(cls) -> dict[str, list[str]]:
         """Get all available interview options organized by company.
 
+        Includes both remote agents (from env) and free default agents.
+
         Returns:
             Dict mapping company name to sorted list of supported interview types
 
         Example:
-            {"google": ["coding", "system_design"], "meta": ["system_design"]}
+            {"default": ["system_design"], "google": ["coding", "system_design"],
+             "meta": ["system_design"]}
         """
+        # Start with remote agents
         agents = cls._get_agents()
-        return {
-            company: sorted(config.supported_types) for company, config in sorted(agents.items())
-        }
+        options = {company: sorted(config.supported_types) for company, config in agents.items()}
+
+        # Add free default agents (always available, even if not from remote)
+        for company, types in DEFAULT_AGENTS.items():
+            if company not in options:
+                options[company] = sorted(types)
+
+        return dict(sorted(options.items()))
 
     @classmethod
     def get_formatted_options(cls) -> str:
@@ -159,12 +177,14 @@ class AgentProviderRegistry:
     def is_valid_combination(cls, company: str, interview_type: str) -> bool:
         """Check if a company/interview_type combination is valid.
 
+        Checks both remote agents and local fallback options.
+
         Args:
             company: Company name
             interview_type: Interview type
 
         Returns:
-            True if the combination is supported, False otherwise
+            True if the combination is supported (remote or local), False otherwise
         """
         options = cls.get_available_options()
         return company.lower() in options and interview_type.lower() in options[company.lower()]

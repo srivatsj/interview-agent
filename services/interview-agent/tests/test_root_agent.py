@@ -62,6 +62,18 @@ class TestSetRoutingDecision:
         assert "routing_decision" in ctx.state
         assert ctx.state["routing_decision"]["company"] == "google"
 
+    def test_valid_routing_default_free_agent(self):
+        """Test default free agent is valid"""
+        ctx = Mock(spec=ToolContext)
+        ctx.state = {}
+
+        result = RootCustomAgent.set_routing_decision("default", "system_design", ctx)
+
+        assert "Routing saved: default system_design" in result
+        assert "routing_decision" in ctx.state
+        assert ctx.state["routing_decision"]["company"] == "default"
+        assert ctx.state["routing_decision"]["interview_type"] == "system_design"
+
 
 class TestRootCustomAgentDelegation:
     """Test RootCustomAgent delegates to correct orchestrator"""
@@ -93,8 +105,9 @@ class TestRootCustomAgentDelegation:
             agent = RootCustomAgent()
 
             # Create context with system_design routing pre-set (no LLM call needed)
+            # Using default as free agent option
             ctx = create_mock_context(
-                {"routing_decision": {"company": "amazon", "interview_type": "system_design"}}
+                {"routing_decision": {"company": "default", "interview_type": "system_design"}}
             )
 
             # Execute _run_async_impl directly

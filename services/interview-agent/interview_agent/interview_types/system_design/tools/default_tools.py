@@ -1,7 +1,8 @@
-"""Default local implementation for system design interviews.
+"""Default system design interview implementation.
 
-Used as fallback when no remote A2A agent is available for a company.
-Contains keyword-based phase evaluation - simple but functional.
+Free default implementation available to all users. Remote agents (Google, Meta, etc.)
+provide company-specific experiences but may incur costs. This default agent provides
+a solid system design interview experience using keyword-based phase evaluation.
 """
 
 import logging
@@ -9,7 +10,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# In-memory phase data
+# Default system design interview phases
 PHASES = [
     {"id": "get_problem", "name": "Problem Statement"},
     {"id": "problem_clarification", "name": "Problem Clarification"},
@@ -77,16 +78,15 @@ EVALUATION_KEYWORDS = {
 
 
 class DefaultSystemDesignTools:
-    """Default local system design interview tools.
+    """Default system design interview tools.
 
-    This is a simple, keyword-based implementation used when:
-    - No remote agent exists for a company
-    - Remote agent is unavailable
-    - Testing/development without remote services
+    Free implementation available to all users. Provides a quality system design
+    interview experience using keyword-based phase evaluation. Users can choose this
+    option instead of paid remote agents (Google, Meta, etc.).
     """
 
     def __init__(self):
-        """Initialize default tools."""
+        """Initialize default system design tools."""
         self._candidate_info = {}
 
     async def get_question(self) -> str:
@@ -95,7 +95,7 @@ class DefaultSystemDesignTools:
         Returns:
             Interview question based on candidate experience
         """
-        logger.info("Generating interview question")
+        logger.info("Generating system design interview question")
 
         # Use candidate info if available
         years_experience = self._candidate_info.get("years_experience", 3)
@@ -120,7 +120,7 @@ class DefaultSystemDesignTools:
 
     async def get_phases(self) -> list[dict]:
         """Get interview phases in order"""
-        logger.info("Getting default system design phases")
+        logger.info("Getting Default system design phases")
         return PHASES
 
     async def get_context(self, phase_id: str) -> str:

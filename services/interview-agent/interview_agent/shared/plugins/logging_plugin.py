@@ -62,6 +62,20 @@ class LoggingPlugin(BasePlugin):
             phase = state["interview_phase"]
             logger.info(f"[STATE] interview_phase: {phase}")
 
+        # Log phase progression and evaluation states
+        if "current_phase" in state:
+            current_phase = state["current_phase"]
+            phase_idx = state.get("current_phase_idx", "?")
+            phase_complete = state.get("phase_complete", False)
+            logger.info(
+                f"[PHASE] current_phase='{current_phase}' "
+                f"idx={phase_idx} complete={phase_complete}"
+            )
+
+        if "interview_phases_complete" in state:
+            complete = state["interview_phases_complete"]
+            logger.info(f"[PHASE] interview_phases_complete={complete}")
+
     async def before_model_callback(
         self, *, callback_context: CallbackContext, llm_request: LlmRequest
     ) -> None:

@@ -25,12 +25,12 @@ class CompanyFactory:
         """Get company-specific interview agent (remote or local).
 
         Args:
-            company: Company name (google, meta, acme, etc.)
+            company: Company name (google, meta, default, etc.)
             interview_type: Interview type (e.g., 'system_design', 'coding')
 
         Returns:
             Provider conforming to InterviewAgentProtocol
-            (RemoteAgentProvider for remote agents, LocalAgentProvider for default tools)
+            (RemoteAgentProvider for remote agents, LocalAgentProvider for free default tools)
 
         Raises:
             ValueError: If company is not supported and has no remote agent
@@ -44,6 +44,6 @@ class CompanyFactory:
             logger.info(f"Using remote agent at {agent_url}")
             return RemoteAgentProvider(agent_url=agent_url)
 
-        # Fallback to default local tools
-        logger.info(f"No remote agent found, using default local tools for {company_lower}")
+        # Use free default local tools
+        logger.info(f"No remote agent found, using free default local tools for {company_lower}")
         return LocalAgentProvider(DefaultSystemDesignTools())
