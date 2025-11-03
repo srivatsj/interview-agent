@@ -84,11 +84,11 @@ class TestRootCustomAgentDelegation:
                 if False:
                     yield
 
-        # Mock InterviewFactory to return our mock
+        # Mock InterviewFactory to return our mock (async method requires AsyncMock)
         mock_orchestrator = MockOrchestrator()
         with patch(
             "interview_agent.root_agent.InterviewFactory.create_interview_orchestrator",
-            return_value=mock_orchestrator,
+            new=AsyncMock(return_value=mock_orchestrator),
         ):
             agent = RootCustomAgent()
 

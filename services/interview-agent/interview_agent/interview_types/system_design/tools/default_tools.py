@@ -89,7 +89,7 @@ class DefaultSystemDesignTools:
         """Initialize default tools."""
         self._candidate_info = {}
 
-    def get_question(self) -> str:
+    async def get_question(self) -> str:
         """Get an interview question tailored to candidate background.
 
         Returns:
@@ -118,17 +118,17 @@ class DefaultSystemDesignTools:
                 "rate limiting, analytics, and how to handle geographic distribution."
             )
 
-    def get_phases(self) -> list[dict]:
+    async def get_phases(self) -> list[dict]:
         """Get interview phases in order"""
         logger.info("Getting default system design phases")
         return PHASES
 
-    def get_context(self, phase_id: str) -> str:
+    async def get_context(self, phase_id: str) -> str:
         """Get context/topics for current phase"""
         logger.info(f"Getting context for phase: {phase_id}")
         return PHASE_CONTEXTS.get(phase_id, "Discuss system design")
 
-    def evaluate_phase(self, phase_id: str, conversation_history: list[dict]) -> dict:
+    async def evaluate_phase(self, phase_id: str, conversation_history: list[dict]) -> dict:
         """Evaluate phase completion and decide next action"""
         logger.info(f"Evaluating phase: {phase_id}")
 

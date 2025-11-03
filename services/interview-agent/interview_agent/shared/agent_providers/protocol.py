@@ -30,7 +30,7 @@ class InterviewAgentProtocol(Protocol):
         """
         ...
 
-    def get_question(self) -> str:
+    async def get_question(self) -> str:
         """Get an interview question tailored to candidate background.
 
         Returns:
@@ -38,7 +38,7 @@ class InterviewAgentProtocol(Protocol):
         """
         ...
 
-    def get_phases(self) -> list[dict[str, str]]:
+    async def get_phases(self) -> list[dict[str, str]]:
         """Get interview phases in order.
 
         Returns:
@@ -46,7 +46,7 @@ class InterviewAgentProtocol(Protocol):
         """
         ...
 
-    def get_context(self, phase_id: str) -> str:
+    async def get_context(self, phase_id: str) -> str:
         """Get context/guidance for a specific phase.
 
         Args:
@@ -57,7 +57,7 @@ class InterviewAgentProtocol(Protocol):
         """
         ...
 
-    def evaluate_phase(
+    async def evaluate_phase(
         self, phase_id: str, conversation_history: list[dict[str, Any]]
     ) -> dict[str, Any]:
         """Evaluate phase completion based on conversation history.

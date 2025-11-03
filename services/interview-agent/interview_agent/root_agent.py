@@ -118,9 +118,10 @@ class RootCustomAgent(BaseAgent):
             if self._interview_orchestrator is None:
                 try:
                     logger.info("Creating interview orchestrator")
-                    self._interview_orchestrator = InterviewFactory.create_interview_orchestrator(
+                    orchestrator = await InterviewFactory.create_interview_orchestrator(
                         routing_decision
                     )
+                    self._interview_orchestrator = orchestrator
                 except (NotImplementedError, ValueError) as e:
                     logger.warning(str(e))
                     return

@@ -20,16 +20,19 @@ class SystemDesignAgent(BaseAgent):
     # Pydantic configuration to allow arbitrary types and extra fields
     model_config = {"arbitrary_types_allowed": True, "extra": "allow"}
 
-    def __init__(self, tool_provider, name: str = "system_design_orchestrator"):
+    def __init__(
+        self,
+        tool_provider,
+        phases: list[dict[str, str]],
+        name: str = "system_design_orchestrator",
+    ):
         """
         Args:
             tool_provider: Company-specific tool provider (e.g., AmazonSystemDesignTools)
+            phases: List of interview phases
             name: Agent name (default: "system_design_orchestrator")
         """
         logger.info(f"Initializing SystemDesignAgent with name: {name}")
-
-        # Fetch phases from tools
-        phases = tool_provider.get_phases()
 
         # Create phase agent
         phase_agent = PhaseAgent(tool_provider)
@@ -42,8 +45,8 @@ class SystemDesignAgent(BaseAgent):
 
         # Set attributes after super().__init__()
         self.tool_provider = tool_provider
-        self.phases = phases
         self.phase_agent = phase_agent
+        self.phases = phases
 
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         """Orchestrate interview phases with clean phase sequencing"""

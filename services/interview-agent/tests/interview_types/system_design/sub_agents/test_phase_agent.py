@@ -28,24 +28,26 @@ class TestPhaseAgent:
 
         assert agent.max_turns == 5
 
-    def test_get_phase_instruction(self):
+    @pytest.mark.asyncio
+    async def test_get_phase_instruction(self):
         """Test phase instruction generation"""
         tools = DefaultSystemDesignTools()
         agent = PhaseAgent(tools)
 
-        instruction = agent._get_phase_instruction("data_design")
+        instruction = await agent._get_phase_instruction("data_design")
 
         assert "data_design" in instruction.lower()
         assert "database" in instruction.lower()
         assert "schema" in instruction.lower()
 
-    def test_get_phase_instruction_for_different_phases(self):
+    @pytest.mark.asyncio
+    async def test_get_phase_instruction_for_different_phases(self):
         """Test instruction varies by phase"""
         tools = DefaultSystemDesignTools()
         agent = PhaseAgent(tools)
 
-        inst1 = agent._get_phase_instruction("data_design")
-        inst2 = agent._get_phase_instruction("problem_clarification")
+        inst1 = await agent._get_phase_instruction("data_design")
+        inst2 = await agent._get_phase_instruction("problem_clarification")
 
         assert inst1 != inst2
         assert "data" in inst1.lower()
@@ -131,13 +133,14 @@ class TestPhaseAgent:
 class TestPhaseAgentIntegration:
     """Integration tests with real tool provider"""
 
-    def test_all_phases_have_valid_instructions(self):
+    @pytest.mark.asyncio
+    async def test_all_phases_have_valid_instructions(self):
         """Test instruction generation works for all phases"""
         tools = DefaultSystemDesignTools()
         agent = PhaseAgent(tools)
-        phases = tools.get_phases()
+        phases = await tools.get_phases()
 
         for phase in phases:
-            instruction = agent._get_phase_instruction(phase["id"])
+            instruction = await agent._get_phase_instruction(phase["id"])
             assert len(instruction) > 0
             assert phase["id"] in instruction.lower()

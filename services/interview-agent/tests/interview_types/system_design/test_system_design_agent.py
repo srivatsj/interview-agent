@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+import pytest_asyncio
 
 from interview_agent.interview_types.system_design.system_design_agent import (
     SystemDesignAgent,
@@ -28,32 +29,41 @@ def create_mock_context(state=None):
     return ctx
 
 
+@pytest_asyncio.fixture
+async def default_phases():
+    """Fixture providing default test phases"""
+    tools = CompanyFactory.get_tools("test_company", "system_design")
+    return await tools.get_phases()
+
+
 class TestSystemDesignAgentInitialization:
     """Test SystemDesignAgent initialization"""
 
-    def test_initialization_with_amazon_tools(self):
+    def test_initialization_with_amazon_tools(self, default_phases):
         """Test initialization with Amazon tools"""
         tools = CompanyFactory.get_tools("test_company", "system_design")
-        agent = SystemDesignAgent(tool_provider=tools, name="amazon_system_design_orchestrator")
+        agent = SystemDesignAgent(
+            tool_provider=tools, phases=default_phases, name="amazon_system_design_orchestrator"
+        )
 
         assert agent.name == "amazon_system_design_orchestrator"
         assert agent.phases is not None
         assert len(agent.phases) == 6
         assert agent.phase_agent is not None
 
-    def test_initialization_with_default_name(self):
+    def test_initialization_with_default_name(self, default_phases):
         """Test initialization with default name"""
         tools = CompanyFactory.get_tools("test_company", "system_design")
-        agent = SystemDesignAgent(tool_provider=tools)
+        agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
 
         assert agent.name == "system_design_orchestrator"
         assert agent.phases is not None
         assert agent.phase_agent is not None
 
-    def test_phases_loaded(self):
+    def test_phases_loaded(self, default_phases):
         """Test phases are loaded during initialization"""
         tools = CompanyFactory.get_tools("test_company", "system_design")
-        agent = SystemDesignAgent(tool_provider=tools)
+        agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
 
         # Verify all 6 phases loaded (including get_problem)
         assert len(agent.phases) == 6
@@ -66,10 +76,10 @@ class TestSystemDesignAgentOrchestration:
     """Test SystemDesignAgent phase orchestration"""
 
     @pytest.mark.asyncio
-    async def test_starts_first_phase(self):
+    async def test_starts_first_phase(self, default_phases):
         """Test orchestrator starts with first phase when phase_idx=0"""
         tools = CompanyFactory.get_tools("test_company", "system_design")
-        agent = SystemDesignAgent(tool_provider=tools)
+        agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
 
         # Start with phase 0
         ctx = create_mock_context({"current_phase_idx": 0})
@@ -87,10 +97,10 @@ class TestSystemDesignAgentOrchestration:
         assert first_event.actions.state_delta["phase_complete"] is False
 
     @pytest.mark.asyncio
-    async def test_transitions_to_next_phase(self):
+    async def test_transitions_to_next_phase(self, default_phases):
         """Test orchestrator transitions to next phase"""
         tools = CompanyFactory.get_tools("test_company", "system_design")
-        agent = SystemDesignAgent(tool_provider=tools)
+        agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
 
         ctx = create_mock_context({"current_phase_idx": 0})
 
@@ -108,10 +118,10 @@ class TestSystemDesignAgentOrchestration:
         ), "Should transition to phase index 1"
 
     @pytest.mark.asyncio
-    async def test_completes_when_all_phases_done(self):
+    async def test_completes_when_all_phases_done(self, default_phases):
         """Test orchestrator completes when phase_idx >= num_phases"""
         tools = CompanyFactory.get_tools("test_company", "system_design")
-        agent = SystemDesignAgent(tool_provider=tools)
+        agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
 
         # Set phase index beyond last phase (6 phases total, so idx 6 is complete)
         ctx = create_mock_context({"current_phase_idx": 6})
@@ -126,10 +136,10 @@ class TestSystemDesignAgentOrchestration:
         assert events[0].actions.state_delta.get("interview_phases_complete") is True
 
     @pytest.mark.asyncio
-    async def test_runs_middle_phase(self):
+    async def test_runs_middle_phase(self, default_phases):
         """Test orchestrator can run middle phases"""
         tools = CompanyFactory.get_tools("test_company", "system_design")
-        agent = SystemDesignAgent(tool_provider=tools)
+        agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
 
         # Start at middle phase (requirements is now index 2)
         ctx = create_mock_context({"current_phase_idx": 2})
@@ -148,10 +158,10 @@ class TestSystemDesignAgentStateManagement:
     """Test SystemDesignAgent state management"""
 
     @pytest.mark.asyncio
-    async def test_resets_phase_state_each_iteration(self):
+    async def test_resets_phase_state_each_iteration(self, default_phases):
         """Test orchestrator resets phase state for each phase"""
         tools = CompanyFactory.get_tools("test_company", "system_design")
-        agent = SystemDesignAgent(tool_provider=tools)
+        agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
 
         ctx = create_mock_context(
             {

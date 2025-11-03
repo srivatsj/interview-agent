@@ -131,7 +131,9 @@ def test_get_agent_url_valid(valid_env):
     """Test get_agent_url returns URL for valid combination."""
     with patch.dict(os.environ, valid_env, clear=True):
         assert AgentProviderRegistry.get_agent_url("google", "coding") == "http://localhost:10123"
-        assert AgentProviderRegistry.get_agent_url("meta", "system_design") == "http://localhost:10125"
+        assert (
+            AgentProviderRegistry.get_agent_url("meta", "system_design") == "http://localhost:10125"
+        )
 
 
 def test_get_agent_url_invalid(valid_env):

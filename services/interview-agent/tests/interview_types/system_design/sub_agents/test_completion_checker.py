@@ -1,6 +1,6 @@
 """Tests for PhaseCompletionChecker"""
 
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from google.adk.events import Event
@@ -78,11 +78,13 @@ class TestPhaseCompletionChecker:
     async def test_run_with_phase_complete(self):
         """Test checker escalates when phase is complete"""
         tools = Mock()
-        tools.evaluate_phase.return_value = {
-            "decision": "next_phase",
-            "score": 8,
-            "message": "Phase complete",
-        }
+        tools.evaluate_phase = AsyncMock(
+            return_value={
+                "decision": "next_phase",
+                "score": 8,
+                "message": "Phase complete",
+            }
+        )
         checker = PhaseCompletionChecker(tools)
 
         class MockContext:
@@ -108,12 +110,14 @@ class TestPhaseCompletionChecker:
     async def test_run_with_phase_incomplete(self):
         """Test checker continues when phase incomplete"""
         tools = Mock()
-        tools.evaluate_phase.return_value = {
-            "decision": "continue",
-            "score": 3,
-            "gaps": ["scalability"],
-            "followup_questions": "What about scale?",
-        }
+        tools.evaluate_phase = AsyncMock(
+            return_value={
+                "decision": "continue",
+                "score": 3,
+                "gaps": ["scalability"],
+                "followup_questions": "What about scale?",
+            }
+        )
         checker = PhaseCompletionChecker(tools)
 
         class MockContext:
@@ -138,7 +142,7 @@ class TestPhaseCompletionChecker:
     async def test_turn_count_increments(self):
         """Test turn count increments on each check"""
         tools = Mock()
-        tools.evaluate_phase.return_value = {"decision": "continue", "score": 2}
+        tools.evaluate_phase = AsyncMock(return_value={"decision": "continue", "score": 2})
         checker = PhaseCompletionChecker(tools)
 
         class MockContext:

@@ -4,7 +4,7 @@ import json
 
 
 class MockA2AResponses:
-    """Collection of mock A2A responses for testing."""
+    """Collection of mock A2A responses for remote agent testing."""
 
     @staticmethod
     def wrap_a2a_response(payload: dict) -> dict:

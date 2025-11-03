@@ -59,23 +59,23 @@ class LocalAgentProvider:
             },
         }
 
-    def get_question(self) -> str:
+    async def get_question(self) -> str:
         """Get an interview question from underlying provider.
 
         Returns:
             Interview question tailored to candidate background
         """
-        return self._provider.get_question()
+        return await self._provider.get_question()
 
-    def get_phases(self) -> list[dict[str, str]]:
+    async def get_phases(self) -> list[dict[str, str]]:
         """Get interview phases from underlying provider.
 
         Returns:
             List of phases with 'id' and 'name' keys
         """
-        return self._provider.get_phases()
+        return await self._provider.get_phases()
 
-    def get_context(self, phase_id: str) -> str:
+    async def get_context(self, phase_id: str) -> str:
         """Get phase context from underlying provider.
 
         Args:
@@ -84,9 +84,9 @@ class LocalAgentProvider:
         Returns:
             Context string for the phase
         """
-        return self._provider.get_context(phase_id)
+        return await self._provider.get_context(phase_id)
 
-    def evaluate_phase(
+    async def evaluate_phase(
         self, phase_id: str, conversation_history: list[dict[str, Any]]
     ) -> dict[str, Any]:
         """Evaluate phase completion using underlying provider.
@@ -98,4 +98,4 @@ class LocalAgentProvider:
         Returns:
             Evaluation result with decision, score, and feedback
         """
-        return self._provider.evaluate_phase(phase_id, conversation_history)
+        return await self._provider.evaluate_phase(phase_id, conversation_history)

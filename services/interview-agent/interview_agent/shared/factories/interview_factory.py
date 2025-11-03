@@ -17,7 +17,7 @@ class InterviewFactory:
     """Factory for creating interview orchestrators."""
 
     @staticmethod
-    def create_interview_orchestrator(routing_decision: dict) -> BaseAgent:
+    async def create_interview_orchestrator(routing_decision: dict) -> BaseAgent:
         """Create an interview orchestrator based on routing decision.
 
         Args:
@@ -43,7 +43,7 @@ class InterviewFactory:
         company_lower = company.lower()
 
         if interview_type_lower == "system_design":
-            return InterviewFactory._create_system_design_orchestrator(
+            return await InterviewFactory._create_system_design_orchestrator(
                 company_lower, interview_type_lower
             )
         elif interview_type_lower == "coding":
@@ -57,7 +57,7 @@ class InterviewFactory:
             )
 
     @staticmethod
-    def _create_system_design_orchestrator(
+    async def _create_system_design_orchestrator(
         company: str, interview_type: str
     ) -> SystemDesignOrchestrator:
         """Create system design orchestrator with company-specific agent.
@@ -72,9 +72,13 @@ class InterviewFactory:
         # Get company-specific tools
         tool_provider = CompanyFactory.get_tools(company, interview_type)
 
-        # Create design agent with tools
+        # Load phases from provider
+        phases = await tool_provider.get_phases()
+
+        # Create design agent with tools and phases
         design_agent = SystemDesignAgent(
             tool_provider=tool_provider,
+            phases=phases,
             name=f"{company}_system_design_orchestrator",
         )
 

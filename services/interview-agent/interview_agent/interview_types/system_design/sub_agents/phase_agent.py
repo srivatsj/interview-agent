@@ -32,7 +32,7 @@ class PhaseAgent(BaseAgent):
         self.tool_provider = tool_provider
         self.max_turns = max_turns
 
-    def _get_phase_instruction(self, phase_id: str) -> str:
+    async def _get_phase_instruction(self, phase_id: str) -> str:
         """Generate phase-specific instruction.
 
         Args:
@@ -41,7 +41,7 @@ class PhaseAgent(BaseAgent):
         Returns:
             Instruction string for the phase
         """
-        phase_context = self.tool_provider.get_context(phase_id)
+        phase_context = await self.tool_provider.get_context(phase_id)
         return load_prompt("phase_agent.txt", phase_id=phase_id, phase_context=phase_context)
 
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
@@ -60,7 +60,7 @@ class PhaseAgent(BaseAgent):
         ctx.session.state["phase_turn_count"] = 0
 
         # Create instruction
-        instruction = self._get_phase_instruction(phase_id)
+        instruction = await self._get_phase_instruction(phase_id)
 
         # Create conversation agent
         conversation_agent = Agent(

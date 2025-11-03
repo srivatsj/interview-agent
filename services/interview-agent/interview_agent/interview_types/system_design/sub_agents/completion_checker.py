@@ -62,7 +62,7 @@ class PhaseCompletionChecker(BaseAgent):
         conversation_history = self._extract_conversation_history(ctx)
 
         # Evaluate phase completion
-        evaluation = self.tool_provider.evaluate_phase(phase_id, conversation_history)
+        evaluation = await self.tool_provider.evaluate_phase(phase_id, conversation_history)
         logger.info(
             f"Phase {phase_id} evaluation: {evaluation.get('decision')} "
             f"(score: {evaluation.get('score', 0)})"

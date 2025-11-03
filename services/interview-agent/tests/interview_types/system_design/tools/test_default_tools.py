@@ -1,49 +1,56 @@
 """Tests for DefaultSystemDesignTools"""
 
+import pytest
+
 from interview_agent.interview_types.system_design.tools import DefaultSystemDesignTools
 
 
 class TestDefaultSystemDesignTools:
     """Test default system design tools"""
 
-    def test_get_phases(self):
+    @pytest.mark.asyncio
+    async def test_get_phases(self):
         """Test get_phases returns correct phases"""
         tools = DefaultSystemDesignTools()
 
-        phases = tools.get_phases()
+        phases = await tools.get_phases()
 
         assert len(phases) == 6
         assert phases[0]["id"] == "get_problem"
         assert phases[1]["id"] == "problem_clarification"
         assert phases[-1]["id"] == "hld"
 
-    def test_get_context_for_data_design(self):
+    @pytest.mark.asyncio
+    async def test_get_context_for_data_design(self):
         """Test get_context returns context for data design"""
         tools = DefaultSystemDesignTools()
 
-        context = tools.get_context("data_design")
+        context = await tools.get_context("data_design")
 
         assert "database" in context.lower()
         assert "schema" in context.lower()
 
-    def test_get_context_for_unknown_phase(self):
+    @pytest.mark.asyncio
+    async def test_get_context_for_unknown_phase(self):
         """Test get_context handles unknown phase"""
         tools = DefaultSystemDesignTools()
 
-        context = tools.get_context("unknown_phase")
+        context = await tools.get_context("unknown_phase")
 
         assert context == "Discuss system design"
 
-    def test_get_context_for_get_problem(self):
+    @pytest.mark.asyncio
+    async def test_get_context_for_get_problem(self):
         """Test get_context returns context for get_problem phase"""
         tools = DefaultSystemDesignTools()
 
-        context = tools.get_context("get_problem")
+        context = await tools.get_context("get_problem")
 
         assert "present" in context.lower()
         assert "problem" in context.lower()
 
-    def test_evaluate_with_good_coverage(self):
+    @pytest.mark.asyncio
+    async def test_evaluate_with_good_coverage(self):
         """Test evaluate returns next_phase with good keyword coverage"""
         tools = DefaultSystemDesignTools()
         conversation = [
@@ -56,30 +63,32 @@ class TestDefaultSystemDesignTools:
             },
         ]
 
-        result = tools.evaluate_phase("problem_clarification", conversation)
+        result = await tools.evaluate_phase("problem_clarification", conversation)
 
         assert result["decision"] == "next_phase"
         assert result["score"] >= 6  # At least 60% coverage
 
-    def test_evaluate_with_poor_coverage(self):
+    @pytest.mark.asyncio
+    async def test_evaluate_with_poor_coverage(self):
         """Test evaluate returns continue with poor keyword coverage"""
         tools = DefaultSystemDesignTools()
         conversation = [
             {"role": "user", "content": "I think we should use a database"},
         ]
 
-        result = tools.evaluate_phase("problem_clarification", conversation)
+        result = await tools.evaluate_phase("problem_clarification", conversation)
 
         assert result["decision"] == "continue"
         assert result["score"] < 6  # Less than 60% coverage
         assert "gaps" in result
         assert "followup_questions" in result
 
-    def test_evaluate_with_empty_conversation(self):
+    @pytest.mark.asyncio
+    async def test_evaluate_with_empty_conversation(self):
         """Test evaluate handles empty conversation"""
         tools = DefaultSystemDesignTools()
 
-        result = tools.evaluate_phase("data_design", [])
+        result = await tools.evaluate_phase("data_design", [])
 
         assert result["decision"] == "continue"
         assert result["score"] == 0
