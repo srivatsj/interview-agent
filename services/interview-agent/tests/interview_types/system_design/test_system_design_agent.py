@@ -48,7 +48,7 @@ class TestSystemDesignAgentInitialization:
 
         assert agent.name == "amazon_system_design_orchestrator"
         assert agent.phases is not None
-        assert len(agent.phases) == 6
+        assert len(agent.phases) == 5
         assert agent.phase_agent is not None
 
     def test_initialization_with_default_name(self, default_phases):
@@ -65,10 +65,10 @@ class TestSystemDesignAgentInitialization:
         tools = CompanyFactory.get_tools("test_company", "system_design")
         agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
 
-        # Verify all 6 phases loaded (including get_problem)
-        assert len(agent.phases) == 6
-        assert agent.phases[0]["id"] == "get_problem"
-        assert agent.phases[1]["id"] == "problem_clarification"
+        # Verify all 5 phases loaded
+        assert len(agent.phases) == 5
+        assert agent.phases[0]["id"] == "problem_clarification"
+        assert agent.phases[1]["id"] == "requirements"
         assert agent.phases[-1]["id"] == "hld"
 
 
@@ -89,12 +89,16 @@ class TestSystemDesignAgentOrchestration:
             events.append(event)
 
         # Verify phase state was set via events (not direct state modification)
-        # First event should set phase state
-        assert len(events) >= 1
-        first_event = events[0]
-        assert first_event.actions.state_delta["current_phase"] == "get_problem"
-        assert first_event.actions.state_delta["current_phase_idx"] == 0
-        assert first_event.actions.state_delta["phase_complete"] is False
+        # First event should set interview_question, second event should set phase state
+        assert len(events) >= 2
+        # First event sets the question
+        question_event = events[0]
+        assert "interview_question" in question_event.actions.state_delta
+        # Second event sets the phase
+        phase_event = events[1]
+        assert phase_event.actions.state_delta["current_phase"] == "problem_clarification"
+        assert phase_event.actions.state_delta["current_phase_idx"] == 0
+        assert phase_event.actions.state_delta["phase_complete"] is False
 
     @pytest.mark.asyncio
     async def test_transitions_to_next_phase(self, default_phases):
@@ -123,8 +127,8 @@ class TestSystemDesignAgentOrchestration:
         tools = CompanyFactory.get_tools("test_company", "system_design")
         agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
 
-        # Set phase index beyond last phase (6 phases total, so idx 6 is complete)
-        ctx = create_mock_context({"current_phase_idx": 6})
+        # Set phase index beyond last phase (5 phases total, so idx 5 is complete)
+        ctx = create_mock_context({"current_phase_idx": 5})
 
         events = []
         async for event in agent._run_async_impl(ctx):
@@ -141,7 +145,7 @@ class TestSystemDesignAgentOrchestration:
         tools = CompanyFactory.get_tools("test_company", "system_design")
         agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
 
-        # Start at middle phase (requirements is now index 2)
+        # Start at middle phase (data_design is index 2)
         ctx = create_mock_context({"current_phase_idx": 2})
 
         events = []
@@ -151,7 +155,7 @@ class TestSystemDesignAgentOrchestration:
         # Verify correct phase was set via events
         assert len(events) >= 1
         first_event = events[0]
-        assert first_event.actions.state_delta["current_phase"] == "requirements"
+        assert first_event.actions.state_delta["current_phase"] == "data_design"
 
 
 class TestSystemDesignAgentStateManagement:
@@ -179,4 +183,66 @@ class TestSystemDesignAgentStateManagement:
         first_event = events[0]
         # New architecture resets phase_complete to False
         assert first_event.actions.state_delta["phase_complete"] is False
-        assert first_event.actions.state_delta["current_phase"] == "problem_clarification"
+        # Phase idx 1 = requirements (0=problem_clarification, 1=requirements, ...)
+        assert first_event.actions.state_delta["current_phase"] == "requirements"
+
+
+class TestSystemDesignAgentQuestionFetching:
+    """Test SystemDesignAgent question fetching"""
+
+    @pytest.mark.asyncio
+    async def test_fetches_question_at_start(self, default_phases):
+        """Test orchestrator fetches question at phase 0 start"""
+        tools = CompanyFactory.get_tools("test_company", "system_design")
+        agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
+
+        # Start with phase 0, no question in state
+        ctx = create_mock_context({"current_phase_idx": 0})
+
+        events = []
+        async for event in agent._run_async_impl(ctx):
+            events.append(event)
+
+        # First event should set the interview_question
+        assert len(events) >= 2
+        question_event = events[0]
+        assert "interview_question" in question_event.actions.state_delta
+        assert isinstance(question_event.actions.state_delta["interview_question"], str)
+        assert len(question_event.actions.state_delta["interview_question"]) > 0
+
+    @pytest.mark.asyncio
+    async def test_does_not_refetch_question_if_exists(self, default_phases):
+        """Test orchestrator does not refetch question if already in state"""
+        tools = CompanyFactory.get_tools("test_company", "system_design")
+        agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
+
+        # Start with question already in state
+        existing_question = "Design a URL shortener"
+        ctx = create_mock_context({"current_phase_idx": 0, "interview_question": existing_question})
+
+        events = []
+        async for event in agent._run_async_impl(ctx):
+            events.append(event)
+
+        # Should NOT set interview_question again
+        for event in events:
+            if hasattr(event, "actions") and event.actions and event.actions.state_delta:
+                assert "interview_question" not in event.actions.state_delta
+
+    @pytest.mark.asyncio
+    async def test_does_not_fetch_question_after_phase_0(self, default_phases):
+        """Test orchestrator does not fetch question after phase 0"""
+        tools = CompanyFactory.get_tools("test_company", "system_design")
+        agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
+
+        # Start at phase 1, no question in state
+        ctx = create_mock_context({"current_phase_idx": 1})
+
+        events = []
+        async for event in agent._run_async_impl(ctx):
+            events.append(event)
+
+        # Should NOT fetch question (only fetches at phase 0)
+        for event in events:
+            if hasattr(event, "actions") and event.actions and event.actions.state_delta:
+                assert "interview_question" not in event.actions.state_delta

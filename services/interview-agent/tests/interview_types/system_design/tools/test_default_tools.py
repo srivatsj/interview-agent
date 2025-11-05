@@ -9,15 +9,44 @@ class TestDefaultSystemDesignTools:
     """Test default system design tools"""
 
     @pytest.mark.asyncio
+    async def test_get_question(self):
+        """Test get_question returns a question based on experience"""
+        tools = DefaultSystemDesignTools()
+
+        # Test with default experience (3 years)
+        question = await tools.get_question()
+        assert isinstance(question, str)
+        assert len(question) > 0
+        assert "URL shortening" in question or "url shortening" in question.lower()
+
+    @pytest.mark.asyncio
+    async def test_get_question_junior_experience(self):
+        """Test get_question returns simpler question for junior candidates"""
+        tools = DefaultSystemDesignTools()
+        tools._candidate_info = {"years_experience": 1}
+
+        question = await tools.get_question()
+        assert "basic functionality" in question.lower()
+
+    @pytest.mark.asyncio
+    async def test_get_question_senior_experience(self):
+        """Test get_question returns complex question for senior candidates"""
+        tools = DefaultSystemDesignTools()
+        tools._candidate_info = {"years_experience": 10}
+
+        question = await tools.get_question()
+        assert "billions" in question.lower() or "sharding" in question.lower()
+
+    @pytest.mark.asyncio
     async def test_get_phases(self):
         """Test get_phases returns correct phases"""
         tools = DefaultSystemDesignTools()
 
         phases = await tools.get_phases()
 
-        assert len(phases) == 6
-        assert phases[0]["id"] == "get_problem"
-        assert phases[1]["id"] == "problem_clarification"
+        assert len(phases) == 5
+        assert phases[0]["id"] == "problem_clarification"
+        assert phases[1]["id"] == "requirements"
         assert phases[-1]["id"] == "hld"
 
     @pytest.mark.asyncio
@@ -38,16 +67,6 @@ class TestDefaultSystemDesignTools:
         context = await tools.get_context("unknown_phase")
 
         assert context == "Discuss system design"
-
-    @pytest.mark.asyncio
-    async def test_get_context_for_get_problem(self):
-        """Test get_context returns context for get_problem phase"""
-        tools = DefaultSystemDesignTools()
-
-        context = await tools.get_context("get_problem")
-
-        assert "present" in context.lower()
-        assert "problem" in context.lower()
 
     @pytest.mark.asyncio
     async def test_evaluate_with_good_coverage(self):

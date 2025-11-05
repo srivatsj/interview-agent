@@ -116,10 +116,7 @@ def test_get_formatted_options(valid_env):
     with patch.dict(os.environ, valid_env, clear=True):
         formatted = AgentProviderRegistry.get_formatted_options()
         expected = (
-            "- Default system_design\n"
-            "- Google coding\n"
-            "- Google system_design\n"
-            "- Meta system_design"
+            "- Default system_design\n- Google coding\n- Google system_design\n- Meta system_design"
         )
         assert formatted == expected
 

@@ -48,8 +48,15 @@ Your job is DONE when:
 2. You have answered their questions (or confirmed they have none)
 3. You have provided encouraging closing remarks
 
-Once complete, simply end your response. Do NOT continue the conversation.
-The interview session will end naturally.
+IMPORTANT: When you are done with the closing conversation:
+- Call the mark_closing_complete tool to signal completion
+- Then provide your final encouraging message
+- The interview session will end after your final message
+
+Example flow:
+- Turn 1: Thank candidate, ask if they have questions
+- Turn 2: Answer their questions (or acknowledge they have none)
+- Turn 3: Call mark_closing_complete, then provide final encouraging words
 </completion_criteria>
 
 <important>

@@ -5,7 +5,7 @@
   },
   {
     "role": "routing_conversation",
-    "text": "Hello there! I can help you practice for your interviews.\n\nTo get started, please tell me which company and interview type you'd like to focus on. Here are your options:\n\n*   **Default system_design**: This is a FREE option that provides quality system design interview practice.\n*   **Google coding**: This option uses a specialized remote agent and may incur costs.\n*   **Google system_design**: This option uses a specialized remote agent and may incur costs.\n*   **Meta system_design**: This option uses a specialized remote agent and may incur costs.\n\nYou can choose the free \"Default\" option or a company-specific option based on your preference. What would you like to choose?"
+    "text": "Hello! I can help you practice for your interviews. Which company and interview type would you like to focus on today?\n\nHere are your options:\n*   **Default system_design**: This is a FREE option that provides quality system design interview practice.\n*   **Google coding**\n*   **Google system_design**\n*   **Meta system_design**\n\nPlease note that while the \"Default\" option is free, practicing with specific companies like Google or Meta uses specialized remote agents that may incur costs.\n\nLet me know your preference!"
   },
   {
     "role": "user",
@@ -13,7 +13,7 @@
   },
   {
     "role": "routing_conversation",
-    "text": "Great! We'll proceed with the default system design interview practice. Good luck with your preparation!"
+    "text": "Great! I've set your preference to Default system design. You're all set to begin your practice!"
   },
   {
     "role": "intro_agent",

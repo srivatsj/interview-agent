@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 # Default system design interview phases
 PHASES = [
-    {"id": "get_problem", "name": "Problem Statement"},
     {"id": "problem_clarification", "name": "Problem Clarification"},
     {"id": "requirements", "name": "Requirements"},
     {"id": "data_design", "name": "Data Design"},
@@ -22,13 +21,6 @@ PHASES = [
 
 # Context for each phase
 PHASE_CONTEXTS = {
-    "get_problem": """
-        Present the system design problem to the candidate:
-        - Describe the system to be designed (e.g., "Design a URL shortener like bit.ly")
-        - Keep it brief and clear
-        - Wait for the candidate to acknowledge before moving to next phase
-        - Once the candidate understands the problem, mark this phase complete
-    """,
     "problem_clarification": """
         Clarify the problem by asking about:
         - Scale (DAU, QPS, data volume)
@@ -68,7 +60,6 @@ PHASE_CONTEXTS = {
 
 # Evaluation criteria (keywords to check for each phase)
 EVALUATION_KEYWORDS = {
-    "get_problem": ["understand", "clear", "ready", "yes", "got it"],
     "problem_clarification": ["qps", "scale", "users", "latency", "availability"],
     "requirements": ["functional", "non-functional", "consistency", "scalability"],
     "data_design": ["database", "schema", "index", "shard", "replication"],

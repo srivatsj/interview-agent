@@ -52,6 +52,16 @@ class SystemDesignAgent(BaseAgent):
         """Orchestrate interview phases with clean phase sequencing"""
         phase_idx = ctx.session.state.get("current_phase_idx", 0)
 
+        # Fetch interview question once at the start (if not already fetched)
+        if "interview_question" not in ctx.session.state and phase_idx == 0:
+            logger.info("Fetching interview question")
+            question = await self.tool_provider.get_question()
+            yield Event(
+                author=self.name,
+                actions=EventActions(state_delta={"interview_question": question}),
+            )
+            logger.info(f"Interview question set: {question[:50]}...")
+
         # Check if all phases complete
         if phase_idx >= len(self.phases):
             logger.info("All interview phases complete")

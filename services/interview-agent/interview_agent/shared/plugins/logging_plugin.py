@@ -68,8 +68,7 @@ class LoggingPlugin(BasePlugin):
             phase_idx = state.get("current_phase_idx", "?")
             phase_complete = state.get("phase_complete", False)
             logger.info(
-                f"[PHASE] current_phase='{current_phase}' "
-                f"idx={phase_idx} complete={phase_complete}"
+                f"[PHASE] current_phase='{current_phase}' idx={phase_idx} complete={phase_complete}"
             )
 
         if "interview_phases_complete" in state:

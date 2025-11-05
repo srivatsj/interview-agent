@@ -30,9 +30,9 @@ async def test_get_phases():
 
     phases = await client.get_phases()
 
-    assert len(phases) == 6
-    assert phases[0]["id"] == "get_problem"
-    assert phases[0]["name"] == "Problem Statement"
+    assert len(phases) == 5
+    assert phases[0]["id"] == "problem_clarification"
+    assert phases[0]["name"] == "Problem Clarification"
 
 
 @pytest.mark.asyncio

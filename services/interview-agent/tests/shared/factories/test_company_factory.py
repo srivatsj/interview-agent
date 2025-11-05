@@ -42,7 +42,7 @@ class TestCompanyFactoryBasic:
 
         assert isinstance(tools, LocalAgentProvider)
         phases = await tools.get_phases()
-        assert len(phases) == 6
+        assert len(phases) == 5
 
     def test_get_tools_acme_fallback(self):
         """Test that acme (placeholder) falls back to default tools."""

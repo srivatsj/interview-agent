@@ -79,11 +79,15 @@ class SystemDesignOrchestrator(BaseAgent):
             async for event in self.closing_agent.run_async(ctx):
                 yield event
 
-            # Mark interview complete
-            yield Event(
-                author=self.name,
-                actions=EventActions(state_delta={"interview_phase": "done"}),
-            )
+            # Only transition to done if closing is complete
+            if ctx.session.state.get("closing_complete"):
+                logger.info("Closing complete, transitioning to done")
+                yield Event(
+                    author=self.name,
+                    actions=EventActions(state_delta={"interview_phase": "done"}),
+                )
+            else:
+                logger.info("Closing not yet complete, staying in closing phase")
 
         elif phase == "done":
             logger.info("Interview already completed")

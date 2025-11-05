@@ -23,7 +23,6 @@ DEFAULT_AGENTS = {
 }
 
 
-
 @dataclass
 class RemoteAgentConfig:
     """Configuration for a remote interview agent."""

@@ -18,7 +18,7 @@ import pytest
 import pytest_asyncio
 import respx
 from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService, Session
+from google.adk.sessions import InMemorySessionService
 from httpx import Response
 
 from interview_agent.root_agent import RootCustomAgent
@@ -26,7 +26,6 @@ from interview_agent.shared.plugins import LoggingPlugin
 
 from .providers.mock_remote_agent import MockA2AResponses
 from .test_helpers import (
-    create_session_with_candidate_info,
     create_session_with_routing,
     get_session_state,
     send_message,
@@ -258,7 +257,11 @@ class TestIntroPhase:
         assert state["routing_decision"]["company"] == "google"
         assert state["routing_decision"]["interview_type"] == "system_design"
 
-        # Intro phase - multi-turn conversation
+        # Intro phase - trigger intro agent to speak first
+        # Send empty message to invoke intro agent and get LLM's greeting
+        await send_message(runner, test_session, "")
+
+        # Now respond to LLM's greeting with candidate info
         await send_message(
             runner,
             test_session,
@@ -285,276 +288,3 @@ class TestIntroPhase:
         candidate_info = state["candidate_info"]
         assert "name" in candidate_info
         assert "years_experience" in candidate_info or "experience" in candidate_info
-
-
-@pytest.mark.integration
-class TestDesignPhase:
-    """
-    Test 3: Design Phase - Complete Multi-Phase Interview
-
-    Tests design phases with:
-    - Multi-turn conversations within each phase
-    - Phase evaluation (continue vs next_phase decisions)
-    - Follow-up questions from agent
-    - Phase completion and transitions
-    - Overall design completion across all phases
-
-    Uses helpers to bypass routing and intro phases.
-
-    LLM Calls: ~8-12 (design phases only, no routing/intro)
-    Time: ~40-60 seconds
-    """
-
-    @pytest.mark.asyncio
-    @pytest.mark.timeout(180)
-    async def test_design_phase_paid_remote(
-        self, runner, session_service, mock_google_agent
-    ):
-        """
-        Test complete design phase flow with PAID REMOTE agent (Google).
-
-        Uses mocked remote agent responses via respx.
-
-        IMPORTANT: The LoopAgent runs multiple internal iterations per user message!
-        - Each phase runs a loop with multiple evaluations until complete
-        - ONE user message processes ONE phase (multiple internal evaluations)
-        - SystemDesignAgent processes one phase per invocation
-
-        Mock sequence (6 evaluations total across 3 phases):
-        - Phase 0 (plan_and_scope): 3 internal evaluations (continue, continue, next_phase)
-        - Phase 1 (requirements_alignment): 2 internal evaluations (continue, next_phase)
-        - Phase 2 (architecture_blueprint): 1 evaluation (next_phase)
-
-        Flow:
-        1. Setup: Use helper to inject routing + candidate_info
-        2. User message 1: Completes phase 0 (3 internal evaluations)
-        3. User message 2: Completes phase 1 (2 internal evaluations)
-        4. User message 3: Completes phase 2 (1 evaluation)
-        5. Verify all 3 phases complete and interview finishes
-
-        LLM Calls: ~8-10
-        Time: ~30-50 seconds
-        """
-        # ========== SETUP ==========
-        test_session = await create_session_with_candidate_info(
-            session_service,
-            company="google",
-            interview_type="system_design",
-            name="Sarah Johnson",
-            years_experience=8,
-            domain="backend distributed systems",
-        )
-
-        state = await get_session_state(session_service, test_session)
-        assert "routing_decision" in state
-        assert "candidate_info" in state
-        assert state.get("interview_phase") == "design"
-        print("\n✓ Setup complete: routing + candidate_info injected")
-
-        # ========== USER MESSAGE 1: Phase 0 (plan_and_scope) ==========
-        print("\n--- User Message 1: Phase 0 (plan_and_scope) ---")
-        print("Expected: 3 internal evaluations (continue, continue, next_phase)")
-        print("          Result: Phase 0 complete, advance to phase 1")
-
-        await send_message(
-            runner,
-            test_session,
-            "I'll design a URL shortening service. "
-            "High-level approach: hash-based URL generation, "
-            "NoSQL database for mappings, Redis cache for hot URLs, "
-            "load balancer for distribution, and rate limiting for abuse prevention.",
-        )
-        state = await get_session_state(session_service, test_session)
-
-        print("\nAfter message 1:")
-        print(f"  Phase index: {state.get('current_phase_idx')}")
-        print(f"  Phase complete: {state.get('phase_complete')}")
-
-        assert state.get("current_phase_idx") == 1, \
-            "Should have advanced to phase 1 (completed phase 0)"
-        assert state.get("phase_complete") is True, \
-            "Phase 0 should be marked complete"
-        print("✓ Message 1 complete: Phase 0 done, advanced to phase 1")
-
-        # ========== USER MESSAGE 2: Phase 1 (requirements_alignment) ==========
-        print("\n--- User Message 2: Phase 1 (requirements_alignment) ---")
-        print("Expected: 2 internal evaluations (continue, next_phase)")
-        print("          Result: Phase 1 complete, advance to phase 2")
-
-        await send_message(
-            runner,
-            test_session,
-            "For requirements: The system must handle 100M URLs, "
-            "generate unique 7-character short codes with collision handling, "
-            "support custom aliases, rate limiting (100 reqs/hour per user), "
-            "and GDPR compliance for EU users.",
-        )
-        state = await get_session_state(session_service, test_session)
-
-        print("\nAfter message 2:")
-        print(f"  Phase index: {state.get('current_phase_idx')}")
-        print(f"  Phase complete: {state.get('phase_complete')}")
-
-        assert state.get("current_phase_idx") == 2, \
-            "Should have advanced to phase 2 (completed phase 1)"
-        assert state.get("phase_complete") is True, \
-            "Phase 1 should be marked complete"
-        print("✓ Message 2 complete: Phase 1 done, advanced to phase 2")
-
-        # ========== USER MESSAGE 3: Phase 2 (architecture_blueprint) ==========
-        print("\n--- User Message 3: Phase 2 (architecture_blueprint) ---")
-        print("Expected: 1 evaluation (next_phase)")
-        print("          Result: Phase 2 complete, all phases done")
-
-        await send_message(
-            runner,
-            test_session,
-            "The architecture uses microservices: "
-            "URL generation service, redirect service, analytics service. "
-            "Each service scales independently on Kubernetes. "
-            "Data layer uses sharded Cassandra with replication factor 3. "
-            "CDN for global distribution and Redis for caching hot URLs.",
-        )
-        state = await get_session_state(session_service, test_session)
-
-        print("\nAfter message 3:")
-        print(f"  Phase index: {state.get('current_phase_idx')}")
-        print(f"  Interview complete: {state.get('interview_phases_complete')}")
-
-        # Should have advanced beyond all 3 phases (idx=3)
-        assert state.get("current_phase_idx") == 3, \
-            "Should have completed all 3 phases (idx should be 3)"
-
-        # ========== VERIFY DESIGN COMPLETION ==========
-        # Phase index 3 means all 3 phases (0, 1, 2) are complete
-        # interview_phases_complete flag is set on the NEXT agent invocation
-        # when it sees phase_idx >= len(phases), so it may be None here
-        assert state.get("current_phase_idx") == 3, \
-            "Phase index should be 3 (all phases complete)"
-
-        print("\n✓ Design Interview Complete!")
-        print("  Total phases completed: 3")
-        print("  User messages sent: 3")
-        print(f"  Final phase index: {state.get('current_phase_idx')}")
-        status = state.get("interview_phases_complete", "pending final update")
-        print(f"  Interview status: {status}")
-
-    @pytest.mark.asyncio
-    @pytest.mark.timeout(180)
-    async def test_design_phase_free_default(
-        self, runner, session_service
-    ):
-        """
-        Test complete design phase flow with FREE DEFAULT agent.
-
-        Uses REAL DefaultSystemDesignTools (no mocking) with keyword-based evaluation.
-
-        Default agent has 6 phases:
-        - Phase 0: get_problem
-        - Phase 1: problem_clarification
-        - Phase 2: requirements
-        - Phase 3: data_design
-        - Phase 4: api_design
-        - Phase 5: hld
-
-        Flow:
-        1. Setup: Use helper to inject routing=default + candidate_info
-        2. User message 1: Completes phase 0 (get_problem)
-        3. User message 2: Completes phase 1 (problem_clarification)
-        4. User message 3: Completes phase 2 (requirements)
-        5. Verify phases are progressing with real keyword-based evaluation
-
-        LLM Calls: ~8-10
-        Time: ~30-50 seconds
-        """
-        # ========== SETUP ==========
-        test_session = await create_session_with_candidate_info(
-            session_service,
-            company="default",  # FREE default agent
-            interview_type="system_design",
-            name="Alex Chen",
-            years_experience=5,
-            domain="distributed systems",
-        )
-
-        state = await get_session_state(session_service, test_session)
-        assert "routing_decision" in state
-        assert state["routing_decision"]["company"] == "default"
-        assert "candidate_info" in state
-        assert state.get("interview_phase") == "design"
-        print("\n✓ Setup complete: routing=default + candidate_info injected")
-
-        # ========== USER MESSAGE 1: Phase 0 (get_problem) ==========
-        print("\n--- User Message 1: Phase 0 (get_problem) ---")
-        print("Expected: Acknowledge problem and show understanding")
-        print("          Result: Phase 0 complete, advance to phase 1")
-
-        await send_message(
-            runner,
-            test_session,
-            "I understand the problem. I'll design a URL shortening service. "
-            "Got it, ready to proceed with clarifying questions.",
-        )
-        state = await get_session_state(session_service, test_session)
-
-        print("\nAfter message 1:")
-        print(f"  Phase index: {state.get('current_phase_idx')}")
-        print(f"  Phase complete: {state.get('phase_complete')}")
-
-        # Should advance from phase 0 to phase 1
-        assert state.get("current_phase_idx") >= 1, \
-            "Should have advanced to at least phase 1 (completed phase 0)"
-        print("✓ Message 1 complete: Phase 0 done")
-
-        # ========== USER MESSAGE 2: Phase 1 (problem_clarification) ==========
-        print("\n--- User Message 2: Phase 1 (problem_clarification) ---")
-        print("Expected: Cover keywords - qps, scale, users, latency, availability")
-        print("          Result: Phase 1 complete, advance to phase 2")
-
-        await send_message(
-            runner,
-            test_session,
-            "For scale: We need to support 10 million users with 10k QPS peak. "
-            "Latency should be under 100ms p99. "
-            "Availability target is 99.9% with geographic distribution across US, EU, Asia.",
-        )
-        state = await get_session_state(session_service, test_session)
-
-        print("\nAfter message 2:")
-        print(f"  Phase index: {state.get('current_phase_idx')}")
-        print(f"  Phase complete: {state.get('phase_complete')}")
-
-        # Should advance from phase 1 to phase 2
-        assert state.get("current_phase_idx") >= 2, \
-            "Should have advanced to at least phase 2 (completed phase 1)"
-        print("✓ Message 2 complete: Phase 1 done")
-
-        # ========== USER MESSAGE 3: Phase 2 (requirements) ==========
-        print("\n--- User Message 3: Phase 2 (requirements) ---")
-        print("Expected: Cover keywords - functional, non-functional, scalability, consistency")
-        print("          Result: Phase 2 complete, advance to phase 3")
-
-        await send_message(
-            runner,
-            test_session,
-            "Functional requirements: create short URL, redirect to original, delete URL. "
-            "Non-functional: scalability to 100M URLs, eventual consistency is acceptable, "
-            "high availability with 99.9% uptime. ",
-        )
-        state = await get_session_state(session_service, test_session)
-
-        print("\nAfter message 3:")
-        print(f"  Phase index: {state.get('current_phase_idx')}")
-        print(f"  Phase complete: {state.get('phase_complete')}")
-
-        # Should advance from phase 2 to phase 3
-        assert state.get("current_phase_idx") >= 3, \
-            "Should have advanced to at least phase 3 (completed phase 2)"
-        print("✓ Message 3 complete: Phase 2 done")
-
-        # ========== VERIFY MULTI-PHASE PROGRESSION ==========
-        print("\n✓ Default Agent Design Interview Progressing!")
-        print("  Total phases completed: 3+")
-        print("  User messages sent: 3")
-        print(f"  Current phase index: {state.get('current_phase_idx')}")
-        print("  Using FREE default agent with keyword-based evaluation")

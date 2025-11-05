@@ -228,8 +228,9 @@ class TestSystemDesignOrchestrator:
         assert MockClosingAgent.called, "Closing agent should have been called"
 
     @pytest.mark.asyncio
-    async def test_closing_phase_transitions_to_done(self):
-        """Test orchestrator transitions to done after closing - NO LLM CALLS"""
+    async def test_closing_phase_transitions_to_done_when_complete(self):
+        """Test orchestrator transitions to done when closing_complete flag set - NO LLM CALLS"""
+        from google.adk.events import Event
 
         class MockClosingAgent(BaseAgent):
             model_config = {"arbitrary_types_allowed": True}
@@ -237,9 +238,10 @@ class TestSystemDesignOrchestrator:
             def __init__(self):
                 super().__init__(name="mock_closing", description="Mock")
 
-            async def run_async(self, _ctx):
-                if False:
-                    yield
+            async def run_async(self, ctx):
+                # Simulate closing agent marking completion
+                ctx.session.state["closing_complete"] = True
+                yield Event(author=self.name)
 
         intro_agent = Agent(model="dummy-model-no-llm", name="mock_intro")
         design_agent = Agent(model="dummy-model-no-llm", name="mock_design")
@@ -264,7 +266,47 @@ class TestSystemDesignOrchestrator:
             and e.actions.state_delta
             and e.actions.state_delta.get("interview_phase") == "done"
             for e in events
-        ), "Should transition to done phase"
+        ), "Should transition to done phase when closing_complete is True"
+
+    @pytest.mark.asyncio
+    async def test_closing_phase_stays_when_not_complete(self):
+        """Test orchestrator stays in closing phase when closing_complete not set - NO LLM CALLS"""
+        from google.adk.events import Event
+
+        class MockClosingAgent(BaseAgent):
+            model_config = {"arbitrary_types_allowed": True}
+
+            def __init__(self):
+                super().__init__(name="mock_closing", description="Mock")
+
+            async def run_async(self, _ctx):
+                # Closing agent runs but does NOT set closing_complete
+                yield Event(author=self.name)
+
+        intro_agent = Agent(model="dummy-model-no-llm", name="mock_intro")
+        design_agent = Agent(model="dummy-model-no-llm", name="mock_design")
+        closing_agent = MockClosingAgent()
+
+        orchestrator = SystemDesignOrchestrator(
+            intro_agent=intro_agent, design_agent=design_agent, closing_agent=closing_agent
+        )
+
+        # Create context with closing phase but NO closing_complete flag
+        ctx = create_mock_context({"interview_phase": "closing"})
+
+        # Execute orchestrator and collect events
+        events = []
+        async for event in orchestrator._run_async_impl(ctx):
+            events.append(event)
+
+        # Verify NO transition to done (should stay in closing)
+        assert not any(
+            hasattr(e, "actions")
+            and e.actions
+            and e.actions.state_delta
+            and e.actions.state_delta.get("interview_phase") == "done"
+            for e in events
+        ), "Should NOT transition to done when closing_complete is False"
 
     # Done phase test
     @pytest.mark.asyncio

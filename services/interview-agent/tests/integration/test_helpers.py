@@ -202,3 +202,135 @@ async def get_session_state(session_service: InMemorySessionService, session):
         session_id=session.id,
     )
     return updated_session.state
+
+
+async def get_last_agent_message(session_service: InMemorySessionService, session) -> str:
+    """Get the last message from the agent.
+
+    Args:
+        session_service: Session service instance
+        session: Session object
+
+    Returns:
+        Last agent message text, or empty string if no messages
+    """
+    updated_session = await session_service.get_session(
+        app_name=session.app_name,
+        user_id=session.user_id,
+        session_id=session.id,
+    )
+
+    # Iterate backwards through events to find last non-user message
+    for event in reversed(updated_session.events):
+        if event.author != "user" and event.content and event.content.parts:
+            for part in event.content.parts:
+                if part.text:
+                    return part.text
+    return ""
+
+
+class CandidateResponseGenerator:
+    """Generates realistic candidate responses using LLM for E2E tests.
+
+    This simulates a human candidate responding to interview questions,
+    enabling realistic multi-turn conversation testing without hardcoded responses.
+    """
+
+    def __init__(self, model: str = "gemini-2.0-flash-exp"):
+        """Initialize the candidate response generator.
+
+        Args:
+            model: Gemini model to use for generating responses
+        """
+        self.model = model
+        self.client = None
+        self.llm_call_count = 0
+
+    def _get_client(self):
+        """Lazy initialize the Gemini client."""
+        if self.client is None:
+            from google import genai
+
+            self.client = genai.Client()
+        return self.client
+
+    async def generate_response(
+        self,
+        interviewer_message: str,
+        phase: str,
+        candidate_profile: dict | None = None,
+    ) -> str:
+        """Generate a realistic candidate response using LLM.
+
+        Args:
+            interviewer_message: The interviewer's question/prompt
+            phase: Current interview phase (e.g., "routing", "intro", "problem_clarification")
+            candidate_profile: Optional candidate profile (name, experience, domain)
+
+        Returns:
+            Generated candidate response text
+        """
+        client = self._get_client()
+
+        # Build candidate persona
+        profile = candidate_profile or {}
+
+        # Special handling for closing phase
+        if phase == "closing_question":
+            persona = f"""You are a software engineering candidate being interviewed.
+Your profile:
+- Name: {profile.get("name", "Alex Chen")}
+- Experience: {profile.get("years_experience", 5)} years
+
+The interview technical portion has just completed. The interviewer is wrapping up.
+You should ask 1-2 professional questions about:
+- Next steps in the interview process
+- Timeline for feedback
+- The role or company
+
+Keep it brief and professional (1-2 sentences).
+"""
+        elif phase == "closing_thanks":
+            persona = f"""You are a software engineering candidate being interviewed.
+Your profile:
+- Name: {profile.get("name", "Alex Chen")}
+
+The interviewer just answered your questions. Now thank them warmly and say goodbye.
+Keep it brief and genuine (1-2 sentences).
+Examples:
+- "Thank you so much for your time today! I really enjoyed our conversation."
+- "Thanks for the great discussion! Looking forward to hearing back."
+"""
+        else:
+            persona = f"""You are a software engineering candidate being interviewed.
+Your profile:
+- Name: {profile.get("name", "Alex Chen")}
+- Experience: {profile.get("years_experience", 5)} years
+- Domain: {profile.get("domain", "distributed systems")}
+- Notable: Worked at tech companies on scalable systems
+
+Respond naturally and concisely to the interviewer's question.
+Current phase: {phase}
+
+IMPORTANT:
+- Be direct and specific
+- For routing: state your preference clearly
+- For intro: share your background naturally
+- For design: provide technical details with keywords
+- Keep responses focused (2-4 sentences)
+"""
+
+        prompt = f"""{persona}
+
+Interviewer: {interviewer_message}
+
+Candidate response:"""
+
+        response = await client.aio.models.generate_content(
+            model=self.model,
+            contents=prompt,
+        )
+
+        self.llm_call_count += 1
+
+        return response.text.strip()

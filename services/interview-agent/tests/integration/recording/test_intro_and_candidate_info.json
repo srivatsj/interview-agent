@@ -1,11 +1,15 @@
 [
   {
+    "role": "intro_agent",
+    "text": "Hello! Thanks for joining today's system design interview. I'm excited to work through a problem with you. Before we start, I'd love to learn a bit about your background. What's your name?"
+  },
+  {
     "role": "user",
     "text": "My name is Sarah Johnson, I have 8 years of professional experience"
   },
   {
     "role": "intro_agent",
-    "text": "Hello Sarah Johnson! Thanks for joining today's system design interview. I'm excited to work through a problem with you.\n\nYou have 8 years of professional experience, that's great! What areas or domains have you primarily worked in? And could you share one or two notable projects you've worked on that you're particularly proud of?"
+    "text": "Great to meet you, Sarah! Eight years of experience is excellent. What areas or domains have you primarily worked in?"
   },
   {
     "role": "user",
@@ -13,6 +17,6 @@
   },
   {
     "role": "intro_agent",
-    "text": "That sounds incredibly impressive, Sarah! Scaling Netflix microservices to 100M users and building payment infrastructure at Stripe are fantastic achievements.\n\nHere's how today's system design interview will work: We'll go through a problem together, starting with clarifying the requirements and defining the scope. Then, we'll move into designing the data model, API, and overall architecture. We'll also have time to deep dive into specific components. It's a collaborative discussion, not a test, so please feel free to ask questions and think out loud. The whole interview will take about 45-60 minutes.\n\nAre you ready to begin?"
+    "text": "Those sound like incredibly impressive projects, Sarah! Scaling Netflix microservices and building payment infrastructure at Stripe really highlights your expertise.\n\nHere's how today's system design interview will work: We'll go through a problem together covering clarifications, requirements, data modeling, API design, architecture, and then potentially dive deep into specific areas. It's a collaborative discussion, so please feel free to ask questions, share your thoughts, and explore different approaches out loud. The whole thing usually takes about 45-60 minutes.\n\nAre you ready to begin?"
   }
 ]

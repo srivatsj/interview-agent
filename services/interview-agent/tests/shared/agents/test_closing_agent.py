@@ -3,8 +3,13 @@
 from unittest.mock import Mock
 
 from google.adk.agents.readonly_context import ReadonlyContext
+from google.adk.tools import ToolContext
 
-from interview_agent.shared.agents.closing_agent import closing_agent, get_closing_instruction
+from interview_agent.shared.agents.closing_agent import (
+    closing_agent,
+    get_closing_instruction,
+    mark_closing_complete,
+)
 
 
 class TestClosingAgent:
@@ -27,6 +32,12 @@ class TestClosingAgent:
         assert closing_agent.instruction
         # instruction is now a callable function
         assert callable(closing_agent.instruction)
+
+    def test_agent_has_mark_closing_complete_tool(self):
+        """Test agent has the mark_closing_complete tool"""
+        assert closing_agent.tools
+        tool_names = [tool.__name__ for tool in closing_agent.tools]
+        assert "mark_closing_complete" in tool_names
 
 
 class TestGetClosingInstruction:
@@ -105,3 +116,46 @@ class TestGetClosingInstruction:
         assert "wrap" in instruction.lower() or "close" in instruction.lower()
         assert "thank" in instruction.lower()
         assert "question" in instruction.lower()
+
+    def test_instruction_mentions_mark_closing_complete_tool(self):
+        """Test the instruction mentions the mark_closing_complete tool"""
+        ctx = Mock(spec=ReadonlyContext)
+        ctx.session.state = {
+            "routing_decision": {"company": "TestCo", "interview_type": "Backend"},
+            "candidate_info": {"name": "Bob"},
+        }
+
+        instruction = get_closing_instruction(ctx)
+
+        # Verify it mentions the tool
+        assert "mark_closing_complete" in instruction
+
+
+class TestMarkClosingCompleteTool:
+    """Test mark_closing_complete tool"""
+
+    def test_mark_closing_complete_sets_flag(self):
+        """Test mark_closing_complete sets closing_complete flag in state"""
+        # Create mock tool context
+        tool_ctx = Mock(spec=ToolContext)
+        tool_ctx.state = {}
+
+        # Call the tool
+        result = mark_closing_complete(tool_ctx)
+
+        # Verify flag was set
+        assert tool_ctx.state["closing_complete"] is True
+        assert isinstance(result, str)
+        assert "complete" in result.lower()
+
+    def test_mark_closing_complete_returns_confirmation(self):
+        """Test mark_closing_complete returns a confirmation message"""
+        tool_ctx = Mock(spec=ToolContext)
+        tool_ctx.state = {}
+
+        result = mark_closing_complete(tool_ctx)
+
+        # Verify return message
+        assert isinstance(result, str)
+        assert len(result) > 0
+        assert "closing" in result.lower() or "complete" in result.lower()

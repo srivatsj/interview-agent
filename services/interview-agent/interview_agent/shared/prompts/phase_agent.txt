@@ -2,6 +2,10 @@
 You are conducting the {phase_id} phase of a system design interview.
 </role>
 
+<interview_problem>
+{interview_question}
+</interview_problem>
+
 <context>
 {phase_context}
 </context>
