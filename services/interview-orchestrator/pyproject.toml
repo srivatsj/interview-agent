@@ -1,0 +1,69 @@
+[project]
+name = "interview-orchestrator"
+version = "0.1.0"
+description = "Interview orchestrator service"
+requires-python = ">=3.10"
+dependencies = [
+    "google-adk==1.16.0",
+    "a2a-sdk>=0.3.0",
+    "httpx>=0.28.1",
+    "python-dotenv>=1.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Testing
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+    "pytest-cov>=7.0.0",
+    "respx>=0.21.1",
+    # Code formatting and linting
+    "ruff>=0.8.4",
+    "pre-commit>=4.0.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+# Target Python 3.10+
+target-version = "py310"
+
+# Line length
+line-length = 100
+
+# Exclude directories
+exclude = [
+    ".git",
+    ".pytest_cache",
+    "__pycache__",
+    "*.egg-info",
+    ".venv",
+    "venv",
+]
+
+[tool.ruff.format]
+# Use double quotes for strings
+quote-style = "double"
+
+# Indent with spaces
+indent-style = "space"
+
+# Respect magic trailing comma
+skip-magic-trailing-comma = false
+
+# Auto-detect line ending
+line-ending = "auto"
+
+[tool.ruff.lint]
+# Enable pycodestyle (E, W), Pyflakes (F), and isort (I)
+select = ["E", "F", "I", "W"]
+
+# E402: Module level import not at top of file - enforce imports always at top
+extend-select = ["E402"]
+
+# Ignore specific rules
+ignore = []
+
+# Allow unused variables when prefixed with underscore
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
