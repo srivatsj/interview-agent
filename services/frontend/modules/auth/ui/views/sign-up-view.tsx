@@ -237,13 +237,13 @@ export const SignUpView = () => {
             </form>
           </Form>
 
-          <div className="bg-radial from-purple-700 to-purple-900 relative hidden md:flex flex-col gap-y-4 items-center justify-center">
+          <div className="bg-radial from-teal-600 to-teal-800 relative hidden md:flex flex-col gap-y-4 items-center justify-center">
             <div className="p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20">
               <Brain className="h-12 w-12 text-white" />
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-white">MindVault</p>
-              <p className="text-sm text-white/80 mt-1">AI Knowledge Hub</p>
+              <p className="text-2xl font-bold text-white">InterviewOS</p>
+              <p className="text-sm text-white/80 mt-1">AI mock interview companion</p>
             </div>
           </div>
         </CardContent>
