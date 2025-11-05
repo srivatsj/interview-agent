@@ -47,10 +47,28 @@ class SystemDesignAgent(BaseAgent):
         self.tool_provider = tool_provider
         self.phase_agent = phase_agent
         self.phases = phases
+        self._initialized = False
+
+    async def _ensure_initialized(self, ctx: InvocationContext) -> None:
+        """Initialize tool provider with candidate info from state (lazy init)."""
+        if self._initialized:
+            return
+
+        candidate_info = ctx.session.state.get("candidate_info", {})
+        logger.info("Initializing tool provider with candidate info")
+        await self.tool_provider.start_interview(
+            interview_type="system_design",
+            candidate_info=candidate_info
+        )
+        self._initialized = True
+        logger.info("Tool provider initialized successfully")
 
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         """Orchestrate interview phases with clean phase sequencing"""
         phase_idx = ctx.session.state.get("current_phase_idx", 0)
+
+        # Ensure tool provider is initialized with candidate info before first use
+        await self._ensure_initialized(ctx)
 
         # Fetch interview question once at the start (if not already fetched)
         if "interview_question" not in ctx.session.state and phase_idx == 0:

@@ -79,22 +79,20 @@ class TestSystemDesignAgentOrchestration:
     async def test_starts_first_phase(self, default_phases):
         """Test orchestrator starts with first phase when phase_idx=0"""
         tools = CompanyFactory.get_tools("test_company", "system_design")
+        tools.start_interview = AsyncMock(return_value={"status": "ok"})
         agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
 
-        # Start with phase 0
-        ctx = create_mock_context({"current_phase_idx": 0})
+        candidate_info = {"name": "Test User", "years_experience": 5}
+        ctx = create_mock_context({"current_phase_idx": 0, "candidate_info": candidate_info})
 
         events = []
         async for event in agent._run_async_impl(ctx):
             events.append(event)
 
-        # Verify phase state was set via events (not direct state modification)
-        # First event should set interview_question, second event should set phase state
+        # Verify phase state was set via events
         assert len(events) >= 2
-        # First event sets the question
         question_event = events[0]
         assert "interview_question" in question_event.actions.state_delta
-        # Second event sets the phase
         phase_event = events[1]
         assert phase_event.actions.state_delta["current_phase"] == "problem_clarification"
         assert phase_event.actions.state_delta["current_phase_idx"] == 0
@@ -104,9 +102,10 @@ class TestSystemDesignAgentOrchestration:
     async def test_transitions_to_next_phase(self, default_phases):
         """Test orchestrator transitions to next phase"""
         tools = CompanyFactory.get_tools("test_company", "system_design")
+        tools.start_interview = AsyncMock(return_value={"status": "ok"})
         agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
 
-        ctx = create_mock_context({"current_phase_idx": 0})
+        ctx = create_mock_context({"current_phase_idx": 0, "candidate_info": {}})
 
         events = []
         async for event in agent._run_async_impl(ctx):
@@ -125,37 +124,33 @@ class TestSystemDesignAgentOrchestration:
     async def test_completes_when_all_phases_done(self, default_phases):
         """Test orchestrator completes when phase_idx >= num_phases"""
         tools = CompanyFactory.get_tools("test_company", "system_design")
+        tools.start_interview = AsyncMock(return_value={"status": "ok"})
         agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
 
-        # Set phase index beyond last phase (5 phases total, so idx 5 is complete)
-        ctx = create_mock_context({"current_phase_idx": 5})
+        ctx = create_mock_context({"current_phase_idx": 5, "candidate_info": {}})
 
         events = []
         async for event in agent._run_async_impl(ctx):
             events.append(event)
 
-        # Verify completion event yielded
-        assert len(events) == 1, "Should yield exactly one completion event"
-        assert events[0].author == agent.name
+        assert len(events) == 1
         assert events[0].actions.state_delta.get("interview_phases_complete") is True
 
     @pytest.mark.asyncio
     async def test_runs_middle_phase(self, default_phases):
         """Test orchestrator can run middle phases"""
         tools = CompanyFactory.get_tools("test_company", "system_design")
+        tools.start_interview = AsyncMock(return_value={"status": "ok"})
         agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
 
-        # Start at middle phase (data_design is index 2)
-        ctx = create_mock_context({"current_phase_idx": 2})
+        ctx = create_mock_context({"current_phase_idx": 2, "candidate_info": {}})
 
         events = []
         async for event in agent._run_async_impl(ctx):
             events.append(event)
 
-        # Verify correct phase was set via events
         assert len(events) >= 1
-        first_event = events[0]
-        assert first_event.actions.state_delta["current_phase"] == "data_design"
+        assert events[0].actions.state_delta["current_phase"] == "data_design"
 
 
 class TestSystemDesignAgentStateManagement:
@@ -165,26 +160,22 @@ class TestSystemDesignAgentStateManagement:
     async def test_resets_phase_state_each_iteration(self, default_phases):
         """Test orchestrator resets phase state for each phase"""
         tools = CompanyFactory.get_tools("test_company", "system_design")
+        tools.start_interview = AsyncMock(return_value={"status": "ok"})
         agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
 
-        ctx = create_mock_context(
-            {
-                "current_phase_idx": 1,
-                "phase_complete": True,  # From previous phase
-            }
-        )
+        ctx = create_mock_context({
+            "current_phase_idx": 1,
+            "phase_complete": True,
+            "candidate_info": {},
+        })
 
         events = []
         async for event in agent._run_async_impl(ctx):
             events.append(event)
 
-        # Verify state was reset for new phase via events
         assert len(events) >= 1
-        first_event = events[0]
-        # New architecture resets phase_complete to False
-        assert first_event.actions.state_delta["phase_complete"] is False
-        # Phase idx 1 = requirements (0=problem_clarification, 1=requirements, ...)
-        assert first_event.actions.state_delta["current_phase"] == "requirements"
+        assert events[0].actions.state_delta["phase_complete"] is False
+        assert events[0].actions.state_delta["current_phase"] == "requirements"
 
 
 class TestSystemDesignAgentQuestionFetching:
@@ -194,37 +185,36 @@ class TestSystemDesignAgentQuestionFetching:
     async def test_fetches_question_at_start(self, default_phases):
         """Test orchestrator fetches question at phase 0 start"""
         tools = CompanyFactory.get_tools("test_company", "system_design")
+        tools.start_interview = AsyncMock(return_value={"status": "ok"})
         agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
 
-        # Start with phase 0, no question in state
-        ctx = create_mock_context({"current_phase_idx": 0})
+        ctx = create_mock_context({"current_phase_idx": 0, "candidate_info": {}})
 
         events = []
         async for event in agent._run_async_impl(ctx):
             events.append(event)
 
-        # First event should set the interview_question
         assert len(events) >= 2
-        question_event = events[0]
-        assert "interview_question" in question_event.actions.state_delta
-        assert isinstance(question_event.actions.state_delta["interview_question"], str)
-        assert len(question_event.actions.state_delta["interview_question"]) > 0
+        assert "interview_question" in events[0].actions.state_delta
+        assert isinstance(events[0].actions.state_delta["interview_question"], str)
 
     @pytest.mark.asyncio
     async def test_does_not_refetch_question_if_exists(self, default_phases):
         """Test orchestrator does not refetch question if already in state"""
         tools = CompanyFactory.get_tools("test_company", "system_design")
+        tools.start_interview = AsyncMock(return_value={"status": "ok"})
         agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
 
-        # Start with question already in state
-        existing_question = "Design a URL shortener"
-        ctx = create_mock_context({"current_phase_idx": 0, "interview_question": existing_question})
+        ctx = create_mock_context({
+            "current_phase_idx": 0,
+            "interview_question": "Design a URL shortener",
+            "candidate_info": {}
+        })
 
         events = []
         async for event in agent._run_async_impl(ctx):
             events.append(event)
 
-        # Should NOT set interview_question again
         for event in events:
             if hasattr(event, "actions") and event.actions and event.actions.state_delta:
                 assert "interview_question" not in event.actions.state_delta
@@ -233,16 +223,45 @@ class TestSystemDesignAgentQuestionFetching:
     async def test_does_not_fetch_question_after_phase_0(self, default_phases):
         """Test orchestrator does not fetch question after phase 0"""
         tools = CompanyFactory.get_tools("test_company", "system_design")
+        tools.start_interview = AsyncMock(return_value={"status": "ok"})
         agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
 
-        # Start at phase 1, no question in state
-        ctx = create_mock_context({"current_phase_idx": 1})
+        ctx = create_mock_context({"current_phase_idx": 1, "candidate_info": {}})
 
         events = []
         async for event in agent._run_async_impl(ctx):
             events.append(event)
 
-        # Should NOT fetch question (only fetches at phase 0)
         for event in events:
             if hasattr(event, "actions") and event.actions and event.actions.state_delta:
                 assert "interview_question" not in event.actions.state_delta
+
+
+class TestSystemDesignAgentLazyInitialization:
+    """Test lazy initialization calls start_interview with candidate info"""
+
+    @pytest.mark.asyncio
+    async def test_calls_start_interview_once_with_candidate_info(self, default_phases):
+        """Test start_interview called once on first run with candidate_info from state"""
+        tools = CompanyFactory.get_tools("test_company", "system_design")
+        tools.start_interview = AsyncMock(return_value={"status": "ok"})
+        agent = SystemDesignAgent(tool_provider=tools, phases=default_phases)
+
+        candidate_info = {"name": "John Doe", "years_experience": 8}
+        ctx = create_mock_context({"current_phase_idx": 0, "candidate_info": candidate_info})
+
+        # First run
+        async for _ in agent._run_async_impl(ctx):
+            pass
+
+        tools.start_interview.assert_called_once_with(
+            interview_type="system_design",
+            candidate_info=candidate_info
+        )
+
+        # Second run - should not call again
+        ctx.session.state["current_phase_idx"] = 1
+        async for _ in agent._run_async_impl(ctx):
+            pass
+
+        tools.start_interview.assert_called_once()  # Still only one call

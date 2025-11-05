@@ -76,26 +76,28 @@ def mock_google_agent():
 
         # Create a realistic sequence for multi-phase interview
         # NOTE: Conversation agent has no tools, so get_question() is NOT called
-        # Sequence: get_phases -> get_context (per phase) -> evaluate_phase (per turn)
+        # Sequence: start_interview -> get_phases -> get_context (per phase) -> evaluate_phase (per turn)
         #
-        # Phase 1: get_phases, get_context, evaluate (continue, continue, next_phase)
+        # Phase 1: start_interview, get_phases, get_context, evaluate (continue, continue, next_phase)
         # Phase 2: get_context, evaluate (continue), evaluate (next_phase)
         # Phase 3: get_context, evaluate (next_phase)
         response_sequence = [
-            # Initial setup: Get all phases and context for phase 1
-            Response(200, json=MockA2AResponses.get_phases()),  # 0
-            Response(200, json=MockA2AResponses.get_context()),  # 1: Phase 1 context
+            # Initial setup: Start interview session with candidate info
+            Response(200, json=MockA2AResponses.start_interview()),  # 0: Lazy init
+            # Get all phases and context for phase 1
+            Response(200, json=MockA2AResponses.get_phases()),  # 1
+            Response(200, json=MockA2AResponses.get_context()),  # 2: Phase 1 context
             # Phase 1 evaluations (after each user turn)
-            Response(200, json=MockA2AResponses.evaluate_phase_continue()),  # 2: Turn 1 - continue
-            Response(200, json=MockA2AResponses.evaluate_phase_continue()),  # 3: Turn 2 - continue
-            Response(200, json=MockA2AResponses.evaluate_phase_next()),  # 4: Turn 3 - next_phase
+            Response(200, json=MockA2AResponses.evaluate_phase_continue()),  # 3: Turn 1 - continue
+            Response(200, json=MockA2AResponses.evaluate_phase_continue()),  # 4: Turn 2 - continue
+            Response(200, json=MockA2AResponses.evaluate_phase_next()),  # 5: Turn 3 - next_phase
             # Phase 2 setup and evaluations
-            Response(200, json=MockA2AResponses.get_context()),  # 5: Phase 2 context
-            Response(200, json=MockA2AResponses.evaluate_phase_continue()),  # 6: Turn 1 - continue
-            Response(200, json=MockA2AResponses.evaluate_phase_next()),  # 7: Turn 2 - next_phase
+            Response(200, json=MockA2AResponses.get_context()),  # 6: Phase 2 context
+            Response(200, json=MockA2AResponses.evaluate_phase_continue()),  # 7: Turn 1 - continue
+            Response(200, json=MockA2AResponses.evaluate_phase_next()),  # 8: Turn 2 - next_phase
             # Phase 3 setup and evaluation
-            Response(200, json=MockA2AResponses.get_context()),  # 8: Phase 3 context
-            Response(200, json=MockA2AResponses.evaluate_phase_next()),  # 9: Turn 1 - next_phase
+            Response(200, json=MockA2AResponses.get_context()),  # 9: Phase 3 context
+            Response(200, json=MockA2AResponses.evaluate_phase_next()),  # 10: Turn 1 - next_phase
         ]
 
         # Repeat sequence to handle multiple test runs
