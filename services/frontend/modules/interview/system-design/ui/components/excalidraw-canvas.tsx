@@ -1,14 +1,19 @@
 import dynamic from 'next/dynamic';
+import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types/types';
 
 const ExcalidrawWrapper = dynamic(
   () => import('./excalidraw-wrapper'),
   { ssr: false }
 );
 
-export function ExcalidrawCanvas() {
+interface ExcalidrawCanvasProps {
+  onExcalidrawAPIInit?: (api: ExcalidrawImperativeAPI) => void;
+}
+
+export function ExcalidrawCanvas({ onExcalidrawAPIInit }: ExcalidrawCanvasProps) {
   return (
     <div style={{ height: '100%', width: '100%' }}>
-      <ExcalidrawWrapper />
+      <ExcalidrawWrapper onInit={onExcalidrawAPIInit} />
     </div>
   );
 }

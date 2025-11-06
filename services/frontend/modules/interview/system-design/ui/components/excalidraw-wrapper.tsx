@@ -2,8 +2,13 @@
 
 import { Excalidraw } from '@excalidraw/excalidraw';
 import '@excalidraw/excalidraw/index.css';
+import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types/types';
 
-export default function ExcalidrawWrapper() {
+interface ExcalidrawWrapperProps {
+  onInit?: (api: ExcalidrawImperativeAPI) => void;
+}
+
+export default function ExcalidrawWrapper({ onInit }: ExcalidrawWrapperProps) {
   return (
     <div style={{ height: '100%', width: '100%' }}>
       <Excalidraw
@@ -13,6 +18,7 @@ export default function ExcalidrawWrapper() {
             viewBackgroundColor: '#ffffff',
           },
         }}
+        excalidrawAPI={onInit}
       />
     </div>
   );
