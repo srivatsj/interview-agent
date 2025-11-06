@@ -1,7 +1,7 @@
 'use client';
 
-import { CandidateVideo } from './candidate-video';
-import { AIAvatar } from './ai-avatar';
+import { CandidateVideo } from '@/modules/interview/common/ui/components/candidate-video';
+import { AIAvatar } from '@/modules/interview/common/ui/components/ai-avatar';
 import { Button } from '@/components/ui/button';
 import { PhoneOff } from 'lucide-react';
 

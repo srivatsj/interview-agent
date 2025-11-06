@@ -4,7 +4,11 @@ import { Clock, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
-export function InterviewHeader() {
+interface InterviewHeaderProps {
+  elapsedTime: string;
+}
+
+export function InterviewHeader({ elapsedTime }: InterviewHeaderProps) {
   return (
     <div className="h-16 border-b bg-gradient-to-r from-[hsl(180,50%,35%)] to-[hsl(180,55%,25%)] px-6 flex items-center justify-between">
       {/* Left: Interview info */}
@@ -24,7 +28,7 @@ export function InterviewHeader() {
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 text-white/90">
           <Clock className="h-4 w-4" />
-          <span className="text-sm font-mono">42:18</span>
+          <span className="text-sm font-mono">{elapsedTime}</span>
         </div>
         <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
           <Settings className="h-4 w-4" />
