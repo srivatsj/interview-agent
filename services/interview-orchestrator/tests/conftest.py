@@ -19,7 +19,7 @@ def mock_agent_env():
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
         # If not in environment, try loading from .env
-        from dotenv import load_dotenv
+        from dotenv import load_dotenv  # noqa: PLC0415
 
         load_dotenv()
         api_key = os.getenv("GOOGLE_API_KEY")

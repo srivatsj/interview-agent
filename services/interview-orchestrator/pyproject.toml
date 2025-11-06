@@ -8,6 +8,8 @@ dependencies = [
     "a2a-sdk>=0.3.0",
     "httpx>=0.28.1",
     "python-dotenv>=1.0.1",
+    "click>=8.1.0",
+    "uvicorn>=0.30.0",
 ]
 
 [project.optional-dependencies]
@@ -60,10 +62,15 @@ line-ending = "auto"
 select = ["E", "F", "I", "W"]
 
 # E402: Module level import not at top of file - enforce imports always at top
-extend-select = ["E402"]
+# PLC0415: Import outside top-level - disallow function-level imports
+extend-select = ["E402", "PLC0415"]
 
 # Ignore specific rules
 ignore = []
 
 # Allow unused variables when prefixed with underscore
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+# Allow function-level imports only in server.py (uses inline # noqa for specific test cases)
+[tool.ruff.lint.per-file-ignores]
+"interview_orchestrator/server.py" = ["PLC0415"]  # Needed to avoid import errors

@@ -13,6 +13,9 @@ Each test tracks and reports the total number of LLM calls made during execution
 This helps monitor test costs and execution time.
 """
 
+import json
+from pathlib import Path
+
 import pytest
 import pytest_asyncio
 import respx
@@ -92,9 +95,6 @@ def mock_google_agent():
 @pytest_asyncio.fixture(autouse=True)
 async def log_conversation(session_service, request):
     """Automatically log full conversation after each test."""
-    import json
-    from pathlib import Path
-
     sessions_to_log = []
 
     original_create = session_service.create_session

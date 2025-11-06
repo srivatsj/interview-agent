@@ -99,7 +99,7 @@ class GoogleAgentExecutor(AgentExecutor):
 
     async def _update_session_state(self, session: Session, state_delta: dict[str, Any]) -> None:
         """Update session state using ADK's event system."""
-        import time
+        import time  # noqa: PLC0415
 
         event = Event(
             invocation_id=f"state_update_{time.time()}",

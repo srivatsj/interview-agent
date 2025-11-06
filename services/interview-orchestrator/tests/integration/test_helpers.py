@@ -249,7 +249,7 @@ class CandidateResponseGenerator:
     def _get_client(self):
         """Lazy initialize the Gemini client."""
         if self.client is None:
-            from google import genai
+            from google import genai  # noqa: PLC0415
 
             self.client = genai.Client()
         return self.client

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from google.adk.agents import Agent, BaseAgent
+from google.adk.events import Event
 
 from interview_orchestrator.interview_types.system_design.orchestrator import (
     SystemDesignOrchestrator,
@@ -36,7 +37,6 @@ class TestSystemDesignOrchestrator:
     @pytest.mark.asyncio
     async def test_intro_phase_runs_intro_agent(self):
         """Test orchestrator runs intro agent when in intro phase - NO LLM CALLS"""
-        from google.adk.events import Event
 
         # Create custom intro agent that tracks calls
         class MockIntroAgent(BaseAgent):
@@ -117,7 +117,6 @@ class TestSystemDesignOrchestrator:
     @pytest.mark.asyncio
     async def test_design_phase_creates_and_runs_design_agent(self):
         """Test orchestrator runs design agent in design phase - NO LLM CALLS"""
-        from google.adk.events import Event
 
         class MockDesignAgent(BaseAgent):
             model_config = {"arbitrary_types_allowed": True}
@@ -151,7 +150,6 @@ class TestSystemDesignOrchestrator:
     @pytest.mark.asyncio
     async def test_design_phase_transitions_to_closing_when_complete(self):
         """Test orchestrator transitions to closing when design complete - NO LLM CALLS"""
-        from google.adk.events import Event
 
         class MockDesignAgent(BaseAgent):
             model_config = {"arbitrary_types_allowed": True}
@@ -196,7 +194,6 @@ class TestSystemDesignOrchestrator:
     @pytest.mark.asyncio
     async def test_closing_phase_runs_closing_agent(self):
         """Test orchestrator runs closing agent when in closing phase - NO LLM CALLS"""
-        from google.adk.events import Event
 
         # Create custom closing agent that tracks calls
         class MockClosingAgent(BaseAgent):
@@ -232,7 +229,6 @@ class TestSystemDesignOrchestrator:
     @pytest.mark.asyncio
     async def test_closing_phase_transitions_to_done_when_complete(self):
         """Test orchestrator transitions to done when closing_complete flag set - NO LLM CALLS"""
-        from google.adk.events import Event
 
         class MockClosingAgent(BaseAgent):
             model_config = {"arbitrary_types_allowed": True}
@@ -273,7 +269,6 @@ class TestSystemDesignOrchestrator:
     @pytest.mark.asyncio
     async def test_closing_phase_stays_when_not_complete(self):
         """Test orchestrator stays in closing phase when closing_complete not set - NO LLM CALLS"""
-        from google.adk.events import Event
 
         class MockClosingAgent(BaseAgent):
             model_config = {"arbitrary_types_allowed": True}

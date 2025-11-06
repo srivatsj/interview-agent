@@ -43,6 +43,98 @@ interview-orchestrator (orchestrator)
 
 4. **Configure secrets:** Export `GOOGLE_API_KEY` or load from `.env` (never commit secrets).
 
+## WebSocket Server
+
+The interview-orchestrator includes a WebSocket server for real-time interview sessions with bidirectional streaming of audio, screenshots, and text.
+
+### Starting the Server
+
+```bash
+# Basic usage (default: 127.0.0.1:8080)
+python -m interview_orchestrator
+
+# Custom host and port
+python -m interview_orchestrator --host 0.0.0.0 --port 3000
+
+# Development mode with auto-reload
+python -m interview_orchestrator --reload
+```
+
+### WebSocket Endpoint
+
+**URL:** `ws://<host>:<port>/run_live`
+
+**Query Parameters:**
+- `app_name`: Always use `interview_orchestrator`
+- `user_id`: Unique identifier for the user
+- `session_id`: Unique identifier for the session
+
+**Example Connection:**
+```javascript
+const ws = new WebSocket(
+  'ws://localhost:8080/run_live?app_name=interview_orchestrator&user_id=user123&session_id=session456'
+);
+```
+
+### Message Format
+
+**From Frontend (Client → Server):**
+
+Audio chunk (realtime mode):
+```json
+{
+  "blob": {
+    "mime_type": "audio/webm",
+    "data": "<base64_encoded_audio>"
+  }
+}
+```
+
+Screenshot (realtime mode):
+```json
+{
+  "blob": {
+    "mime_type": "image/png",
+    "data": "<base64_encoded_image>"
+  }
+}
+```
+
+Text message (turn-by-turn mode):
+```json
+{
+  "content": {
+    "parts": [{"text": "user message"}]
+  }
+}
+```
+
+**To Frontend (Server → Client):**
+
+ADK Event objects serialized to JSON. Events include:
+- `agent_content`: AI responses (text or audio)
+- `tool_call`: Tool invocations
+- `tool_result`: Tool results
+- `state_update`: Session state changes
+
+### Architecture
+
+The WebSocket server leverages ADK's built-in infrastructure:
+- **FastAPI** for HTTP and WebSocket handling
+- **LiveRequestQueue** for bidirectional streaming
+- **Session Management** via InMemorySessionService
+- **Event Streaming** from ADK agents
+
+```
+Frontend (WebSocket Client)
+    ↓↑ Audio/Screenshots/Text
+WebSocket Server (/run_live)
+    ↓↑ LiveRequestQueue
+ADK App (RootCustomAgent)
+    ↓↑ Agent Events
+Gemini Live API
+```
+
 ## Running Tests
 
 ### Unit Tests (fast, offline)
