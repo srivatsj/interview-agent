@@ -41,6 +41,7 @@ const companies = [
     completedCount: 8,
     available: true,
     isPremium: false,
+    directLink: "/interview/demo-123/system-design",
   },
   {
     id: "amazon",
@@ -145,7 +146,7 @@ export const HomeView = () => {
                       size="sm"
                       asChild
                     >
-                      <Link href={`/interview/new?company=${company.id}`}>
+                      <Link href={company.directLink || `/interview/new?company=${company.id}`}>
                         <Play className="mr-2 size-4" />
                         Start Interview
                       </Link>
