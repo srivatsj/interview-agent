@@ -5,7 +5,12 @@ interface AudioChunk {
   timestamp: number;
 }
 
-export function useAudioRecorder() {
+export interface UseAudioRecorderOptions {
+  onChunk?: (chunk: AudioChunk) => void;
+  chunkInterval?: number;
+}
+
+export function useAudioRecorder({ onChunk, chunkInterval = 5000 }: UseAudioRecorderOptions = {}) {
   const [isRecording, setIsRecording] = useState(false);
   const [chunks, setChunks] = useState<AudioChunk[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -27,16 +32,17 @@ export function useAudioRecorder() {
             timestamp: Date.now(),
           };
           setChunks((prev) => [...prev, chunk]);
+          onChunk?.(chunk); // Call callback if provided
         }
       };
 
       mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start(5000); // Capture chunks every 5 seconds
+      mediaRecorder.start(chunkInterval);
       setIsRecording(true);
     } catch (error) {
       console.error('Failed to start audio recording:', error);
     }
-  }, []);
+  }, [onChunk, chunkInterval]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {

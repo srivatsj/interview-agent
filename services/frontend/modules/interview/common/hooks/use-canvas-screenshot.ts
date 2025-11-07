@@ -1,15 +1,20 @@
 import { useEffect, useCallback, useState } from 'react';
 import { exportToBlob } from '@excalidraw/excalidraw';
-import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types/types';
+import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
 
 interface Screenshot {
   blob: Blob;
   timestamp: number;
 }
 
+export interface UseCanvasScreenshotOptions {
+  onScreenshot?: (screenshot: Screenshot) => void;
+  intervalMs?: number;
+}
+
 export function useCanvasScreenshot(
   excalidrawAPI: ExcalidrawImperativeAPI | null,
-  intervalMs: number = 10000
+  { onScreenshot, intervalMs = 10000 }: UseCanvasScreenshotOptions = {}
 ) {
   const [screenshots, setScreenshots] = useState<Screenshot[]>([]);
 
@@ -33,10 +38,11 @@ export function useCanvasScreenshot(
       };
 
       setScreenshots((prev) => [...prev, screenshot]);
+      onScreenshot?.(screenshot); // Call callback if provided
     } catch (error) {
       console.error('Failed to capture screenshot:', error);
     }
-  }, [excalidrawAPI]);
+  }, [excalidrawAPI, onScreenshot]);
 
   useEffect(() => {
     if (!excalidrawAPI) return;
