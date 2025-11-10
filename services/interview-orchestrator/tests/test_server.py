@@ -5,10 +5,11 @@ Tests the server initialization and app creation without starting actual server.
 """
 
 import pytest
+from google.adk.agents import Agent
+from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.apps import App
 
-from interview_orchestrator.root_agent import RootCustomAgent
-from interview_orchestrator.server import create_app
+from interview_orchestrator.server import create_app, create_run_config
 
 
 class TestServerSetup:
@@ -20,14 +21,21 @@ class TestServerSetup:
 
         assert isinstance(app, App)
         assert app.name == "interview_orchestrator"
-        assert isinstance(app.root_agent, RootCustomAgent)
+        assert isinstance(app.root_agent, Agent)
 
     def test_create_app_has_root_agent(self):
         """Test that the app has a properly configured root agent."""
         app = create_app()
 
-        assert hasattr(app.root_agent, "routing_agent")
-        assert app.root_agent.name == "interview_router"
+        assert app.root_agent.name == "interview_agent"
+        assert callable(app.root_agent.instruction)  # Dynamic instruction
+
+    def test_create_run_config(self):
+        """Test that create_run_config returns proper BIDI config."""
+        config = create_run_config()
+
+        assert isinstance(config, RunConfig)
+        assert config.streaming_mode == StreamingMode.BIDI
 
     def test_multiple_app_instances(self):
         """Test that multiple app instances can be created independently."""
@@ -35,7 +43,7 @@ class TestServerSetup:
         app2 = create_app()
 
         assert app1 is not app2
-        assert app1.root_agent is not app2.root_agent
+        # root_agent is shared (module-level), but apps are different
         assert app1.name == app2.name
 
 
@@ -62,6 +70,6 @@ class TestWebSocketIntegration:
         assert hasattr(app, "root_agent")
         assert hasattr(app, "plugins")
 
-        # Verify root agent structure
-        assert hasattr(app.root_agent, "_run_async_impl")
-        assert callable(app.root_agent._run_async_impl)
+        # Verify root agent is LlmAgent
+        assert hasattr(app.root_agent, "run_async")
+        assert callable(app.root_agent.run_async)

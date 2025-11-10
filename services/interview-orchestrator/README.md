@@ -4,20 +4,49 @@ Central Google ADK agent orchestrating multi-phase interviews using remote speci
 
 ## Architecture
 
-The interview-orchestrator acts as an orchestrator that:
-- Routes interviews based on company and type
-- Delegates to remote interview agents (google-agent, meta-agent) via A2A protocol
-- Falls back to local default tools for free tier support
+The interview-orchestrator uses a **single-agent pattern with state-driven dynamic instruction** for seamless multi-phase interview flow:
 
 ```
-interview-orchestrator (orchestrator)
-    ├── Routing Agent (LLM-powered)
-    ├── Intro Agent (collects candidate info)
-    └── Interview Factory
+interview-orchestrator (single LlmAgent with dynamic instruction)
+    ├── State-Driven Delegation (via get_dynamic_instruction)
+    │   ├── routing phase → routing tools
+    │   ├── intro phase → intro tools
+    │   ├── design phase → design tools
+    │   └── closing phase → closing tools
+    └── Company Factory (for design phase)
         ├── Remote: google-agent (A2A) → http://localhost:10123
         ├── Remote: meta-agent (A2A) → http://localhost:10125
         └── Local: default-tools (free tier)
 ```
+
+**Key Features:**
+- Single `LlmAgent` with dynamic instruction based on `interview_phase` state
+- Tool-driven state transitions (routing → intro → design → closing → done)
+- Live API (gemini-2.5-flash-native-audio-preview) for bidirectional audio/video
+- No manual `run_live()` calls - ADK manages delegation automatically
+- Persistent WebSocket connection throughout all phases
+
+## Current Status
+
+**✅ Implemented:**
+- Single-agent pattern with state-driven instruction delegation
+- Tool-based phase transitions (set_routing_decision, save_candidate_info, etc.)
+- Live API WebSocket server with bidirectional streaming
+- Session state management via ADK
+- Unit tests for all tools (12 passing)
+- Integration tests for state transitions (1 passing)
+- A2A protocol support for remote company-specific agents
+
+**📋 Architecture:**
+- **Root Agent:** Single `LlmAgent` (`root_agent.py`)
+- **Dynamic Instruction:** `get_dynamic_instruction()` returns phase-specific prompts
+- **State Transitions:** Tools update `interview_phase` to trigger delegation changes
+- **Phase Flow:** routing → intro → design → closing → done
+
+**🔧 Remaining Work:**
+- Implement bidirectional WebSocket with RunConfig and StreamingMode.BIDI
+- Test audio interruptions with frontend integration
+- Add more company-specific remote agents
 
 ## Quick Start
 
@@ -130,7 +159,7 @@ Frontend (WebSocket Client)
     ↓↑ Audio/Screenshots/Text
 WebSocket Server (/run_live)
     ↓↑ LiveRequestQueue
-ADK App (RootCustomAgent)
+ADK App (Single LlmAgent)
     ↓↑ Agent Events
 Gemini Live API
 ```
@@ -144,9 +173,9 @@ pytest tests/ --ignore=tests/integration/ -v
 
 Targeted suites:
 ```bash
-pytest tests/test_root_agent.py -v
-pytest tests/shared/agents/test_intro_agent.py -v
+pytest tests/shared/tools/ -v
 pytest tests/interview_types/system_design/ -v
+pytest tests/shared/agent_providers/ -v
 ```
 
 ### Coverage
@@ -156,76 +185,16 @@ pytest tests/ --ignore=tests/integration/ --cov=interview_orchestrator --cov-rep
 
 ### Integration Tests
 
-Integration tests verify complete interview flow with real LLM calls using LLM-generated candidate responses.
+Integration tests verify complete interview flow using text messages (not audio).
 
-**Run all integration tests:**
+**Run integration tests:**
 ```bash
-pytest tests/integration/ -v
+pytest tests/integration/test_single_agent_flow.py -v
 ```
 
-**Run specific test suites:**
+**Run with output:**
 ```bash
-# Individual phases (for debugging)
-pytest tests/integration/test_interview_flow.py::TestRoutingPhase -v
-pytest tests/integration/test_interview_flow.py::TestIntroPhase -v
-
-# Complete E2E tests (with LLM candidate)
-pytest tests/integration/test_e2e_interview.py::TestE2EInterview::test_e2e_interview_free_default -v -s
-pytest tests/integration/test_e2e_interview.py::TestE2EInterview::test_e2e_interview_paid_remote -v -s
-```
-
-**View live conversation:**
-```bash
-pytest tests/integration/test_e2e_interview.py -v -s
-```
-
-#### Test Structure
-
-**Individual Phase Tests** (for debugging):
-- `TestRoutingPhase`: Routing decision logic
-- `TestIntroPhase`: Candidate info collection
-
-**E2E Tests** (realistic full flow):
-- `test_e2e_interview_free_default`: Complete interview with free default agent
-- `test_e2e_interview_paid_remote`: Complete interview with paid Google agent
-
-#### LLM-Generated Candidate Responses
-
-E2E tests use `CandidateResponseGenerator` to simulate realistic candidate behavior:
-- ✅ No hardcoded responses
-- ✅ Natural multi-turn conversations
-- ✅ Realistic user experience testing
-- ✅ Full conversation recordings
-
-#### LLM Call Tracking & Costs
-
-Latest test run metrics:
-
-**`test_e2e_interview_free_default`:**
-```
-Total Interviewer LLM Calls: 7
-Total Candidate LLM Calls: 6
-Total LLM Calls: 13
-Phases Completed: 3
-Time: 2:20 minutes
-Cost: ~$0.02-0.05 per run
-```
-
-Breakdown:
-- Routing: 2 calls
-- Intro: 3 calls (multi-turn)
-- Design phases: 2 calls
-- Candidate responses: 6 calls
-
-#### Conversation Recordings
-
-All tests save conversation recordings to `tests/integration/recording/*.json`:
-
-```json
-[
-  {"role": "agent_name", "text": "message"},
-  {"role": "user", "text": "response"}
-]
+pytest tests/integration/test_single_agent_flow.py -v -s
 ```
 
 ## Code Quality
@@ -241,43 +210,104 @@ pre-commit run --all-files       # run hooks on demand
 
 ```
 interview_orchestrator/
-├── root_agent.py                         # RootCustomAgent entrypoint
+├── root_agent.py                         # Single LlmAgent with dynamic instruction
+├── server.py                             # WebSocket server (FastAPI + ADK)
 ├── interview_types/
 │   └── system_design/
-│       ├── system_design_agent.py        # Orchestrates multi-phase interview
-│       ├── sub_agents/
-│       │   └── phase_agent.py            # Interactive phase agent with turn-by-turn evaluation
+│       ├── design_agent_tool.py          # Design phase tools
 │       └── tools/
 │           └── default_tools.py          # Free tier implementation
 ├── shared/
-│   ├── agents/                           # Intro/closing reusable agents
 │   ├── agent_providers/                  # Remote A2A and local providers
+│   │   ├── protocol.py                   # InterviewAgentProtocol
+│   │   ├── registry.py                   # AgentProviderRegistry
+│   │   ├── remote_provider.py            # RemoteAgentProvider (A2A)
+│   │   └── local_provider.py             # LocalAgentProvider (wrapper)
 │   ├── factories/
-│   │   ├── interview_factory.py          # Creates interview orchestrators
 │   │   └── company_factory.py            # Routes to remote/local agents
 │   ├── prompts/                          # External prompt templates
+│   │   ├── routing_agent.txt
+│   │   ├── intro_agent.txt
+│   │   ├── design_phase.txt
+│   │   └── closing_agent.txt
 │   ├── schemas/                          # Pydantic data contracts
+│   │   ├── routing_decision.py
+│   │   └── candidate_info.py
+│   ├── tools/                            # Phase transition tools
+│   │   ├── routing_tools.py              # set_routing_decision
+│   │   ├── intro_tools.py                # save_candidate_info
+│   │   └── closing_tools.py              # mark_interview_complete
 │   └── constants.py
 └── ...
 
 tests/
 ├── integration/
-│   ├── test_e2e_interview.py             # E2E tests with LLM candidate
-│   ├── test_interview_flow.py            # Individual phase tests
-│   ├── test_helpers.py                   # CandidateResponseGenerator
-│   └── recording/                        # Conversation JSON files
-└── interview_types/ & shared/            # Unit tests mirroring package
+│   └── test_single_agent_flow.py         # State transition tests (text-based)
+├── interview_types/
+│   └── system_design/
+│       └── test_design_agent_tool.py     # Design tool tests
+└── shared/
+    ├── tools/                            # Tool unit tests
+    │   ├── test_routing_tools.py
+    │   ├── test_intro_tools.py
+    │   └── test_closing_tools.py
+    └── agent_providers/                  # Provider tests
+        ├── test_registry.py
+        ├── test_remote_provider.py
+        └── test_local_provider.py
 ```
 
 ## Architecture Highlights
 
+- **Single-Agent Pattern:** One `LlmAgent` with dynamic instruction based on `interview_phase` state
+- **State-Driven Delegation:** `get_dynamic_instruction()` returns phase-specific prompts
+- **Tool-Based Transitions:** Tools update state to trigger phase changes
 - **A2A Protocol Integration:** Remote specialized agents via Agent-to-Agent protocol
-- **Deterministic Routing:** Root agent delegates based on persisted routing decisions
-- **Phase Orchestration:** System-design flows through intro → design phases → closing
-- **Interactive Phase Flow:** PhaseAgent evaluates after each user response (LLM speaks → user responds → evaluate → repeat)
+- **Persistent Connection:** Single WebSocket session throughout all phases
 - **Free + Paid Tiers:** Remote agents (Google, Meta) or free local default tools
-- **Natural Testing:** E2E tests use LLM-generated candidate responses for realistic conversations
-- **Question Integration:** Interview questions fetched once and injected into all phase prompts
+
+### Phase Flow
+
+The interview follows this state-driven flow:
+
+1. **Routing Phase** (`interview_phase = "routing"` or undefined)
+   - Tool: `set_routing_decision(company, interview_type)`
+   - Action: Sets routing decision, transitions to `intro`
+
+2. **Intro Phase** (`interview_phase = "intro"`)
+   - Tool: `save_candidate_info(name, years_experience, domain, projects)`
+   - Action: Saves candidate info, transitions to `design`
+
+3. **Design Phase** (`interview_phase = "design"`)
+   - Tool: `initialize_design_phase()` - loads interview question
+   - Tool: `mark_design_complete()` - transitions to `closing`
+
+4. **Closing Phase** (`interview_phase = "closing"`)
+   - Tool: `mark_interview_complete()` - transitions to `done`
+
+5. **Done** (`interview_phase = "done"`)
+   - Interview complete
+
+### How Dynamic Instruction Works
+
+```python
+def get_dynamic_instruction(ctx: ReadonlyContext) -> str:
+    """Generate instruction based on current interview phase."""
+    phase = ctx.session.state.get("interview_phase", "routing")
+
+    if phase == "routing":
+        return load_prompt("routing_agent.txt", ...)
+    elif phase == "intro":
+        return load_prompt("intro_agent.txt", ...)
+    elif phase == "design":
+        return load_prompt("design_phase.txt", ...)
+    elif phase == "closing":
+        return load_prompt("closing_agent.txt", ...)
+    else:
+        return "Interview is complete."
+```
+
+When a tool updates `interview_phase` in state, ADK automatically re-evaluates the instruction and adapts behavior - no manual orchestration needed!
 
 ## Remote Agent Configuration
 
@@ -312,3 +342,36 @@ To add a new remote agent (e.g., `amazon`):
 4. Restart interview-orchestrator to pick up the new configuration
 
 The registry automatically validates all required environment variables on startup.
+
+## Bidirectional WebSocket with User Interruptions
+
+To enable proper user interruption handling (user can interrupt AI mid-speech), configure the server with `StreamingMode.BIDI`:
+
+```python
+from google.genai.types import RunConfig, StreamingMode
+
+# In server.py, pass RunConfig to run_live()
+run_config = RunConfig(
+    streaming_mode=StreamingMode.BIDI,  # Enable bidirectional streaming
+)
+
+# Pass to runner
+runner.run_live(
+    app_name="interview_orchestrator",
+    user_id=user_id,
+    session_id=session_id,
+    run_config=run_config,
+)
+```
+
+This enables:
+- ✅ User can interrupt AI mid-speech
+- ✅ AI stops speaking when interrupted
+- ✅ AI processes user's interruption immediately
+- ✅ Seamless turn-taking in voice conversations
+
+See [ADK Custom Streaming WebSocket docs](https://google.github.io/adk-docs/streaming/custom-streaming-ws/) for implementation details.
+
+---
+
+**Built with [Google ADK](https://github.com/google/adk) - Agent Development Kit for building production-ready AI agents.**

@@ -1,25 +1,25 @@
-"""
-Root Agent - Custom Interview Routing Agent
+"""Root Agent - Single LlmAgent with State-Driven Instruction.
 
-Uses BaseAgent with tool-based routing + deterministic delegation.
-Reduces LLM calls by having explicit control flow.
+Uses Live API for persistent bidirectional audio/video streaming.
+Adapts behavior based on interview_phase state.
 """
 
 import logging
-from typing import AsyncGenerator
 
 from dotenv import load_dotenv
-from google.adk.agents import Agent, BaseAgent
-from google.adk.agents.invocation_context import InvocationContext
+from google.adk.agents import Agent
 from google.adk.agents.readonly_context import ReadonlyContext
-from google.adk.events import Event
-from google.adk.tools import ToolContext
 
+from .interview_types.system_design.design_agent_tool import (
+    initialize_design_phase,
+    mark_design_complete,
+)
 from .shared.agent_providers import AgentProviderRegistry
-from .shared.constants import MODEL_NAME
-from .shared.factories import InterviewFactory
+from .shared.constants import MODEL_WITH_AUDIO
 from .shared.prompts.prompt_loader import load_prompt
-from .shared.schemas import RoutingDecision
+from .shared.tools.closing_tools import mark_interview_complete
+from .shared.tools.intro_tools import save_candidate_info
+from .shared.tools.routing_tools import set_routing_decision
 
 # Load environment variables
 load_dotenv()
@@ -27,111 +27,87 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 
-class RootCustomAgent(BaseAgent):
-    """Custom agent with deterministic delegation after tool-based routing."""
+def get_dynamic_instruction(ctx: ReadonlyContext) -> str:
+    """Generate instruction based on current interview phase.
 
-    # Type hints for sub-agents (required by BaseAgent)
-    routing_agent: Agent
+    Instruction adapts to: routing → intro → design → closing → done
+    State changes via tools trigger automatic instruction updates.
 
-    # Pydantic configuration to allow arbitrary types
-    model_config = {"arbitrary_types_allowed": True, "extra": "allow"}
+    Args:
+        ctx: Readonly context with session state
 
-    @staticmethod
-    def _get_routing_instruction(ctx: ReadonlyContext) -> str:
-        """Generate routing instruction with available options from registry."""
-        # Get formatted options from registry
-        available_text = AgentProviderRegistry.get_formatted_options()
-        return load_prompt("routing_agent.txt", available_options=available_text)
+    Returns:
+        Phase-specific instruction string
+    """
+    phase = ctx.session.state.get("interview_phase", "routing")
+    routing = ctx.session.state.get("routing_decision", {})
+    candidate_info = ctx.session.state.get("candidate_info", {})
 
-    @staticmethod
-    def set_routing_decision(company: str, interview_type: str, tool_context: ToolContext) -> str:
-        """Save the routing decision to session state.
+    company = routing.get("company", "COMPANY")
+    interview_type = routing.get("interview_type", "INTERVIEW_TYPE")
+    candidate_name = candidate_info.get("name", "CANDIDATE")
 
-        Use this when you've determined which company and interview type the user wants.
+    if phase == "routing":
+        # Ask user for company and interview type preferences
+        available_options = AgentProviderRegistry.get_formatted_options()
+        return load_prompt("routing_agent.txt", available_options=available_options)
 
-        Args:
-            company: The company (google, meta, etc.)
-            interview_type: The interview type (system_design, coding, or behavioral)
-
-        Returns:
-            Confirmation message
-        """
-        # Validate using registry
-        if not AgentProviderRegistry.is_valid_combination(company, interview_type):
-            available = AgentProviderRegistry.get_formatted_options().replace("\n", ", ")
-            return f"Error: '{company} {interview_type}' is not available. Available: {available}"
-
-        routing_decision = RoutingDecision(
-            company=company.lower(), interview_type=interview_type.lower(), confidence=1.0
+    elif phase == "intro":
+        # Collect candidate background information
+        return load_prompt(
+            "intro_agent.txt",
+            company=company,
+            interview_type=interview_type,
         )
 
-        # Update state via ToolContext.state
-        tool_context.state["routing_decision"] = routing_decision.model_dump()
-        logger.info(f"Routing decision saved: {company.lower()} {interview_type.lower()}")
-
-        return f"Routing saved: {company.lower()} {interview_type.lower()}"
-
-    def __init__(self):
-        # Create the routing agent with the tool
-        routing_agent = Agent(
-            model=MODEL_NAME,
-            name="routing_conversation",
-            description="Asks user for company and interview type preferences",
-            tools=[RootCustomAgent.set_routing_decision],
-            instruction=RootCustomAgent._get_routing_instruction,
-        )
-
-        # Pass sub-agents to BaseAgent constructor
-        super().__init__(
-            name="interview_router",
-            description="Routes users to appropriate interview with minimal LLM calls",
-            routing_agent=routing_agent,
-            sub_agents=[routing_agent],
-        )
-
-        # Lazy-created orchestrator based on routing decision
-        self._interview_orchestrator = None
-
-    async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
-        """
-        Flow:
-        1. Check if routing_decision exists in state
-        2. If not, use LLM agent to collect routing via tool
-        3. Once routing exists, deterministically delegate to sub-agent
-        """
-        routing_decision = ctx.session.state.get("routing_decision")
-
-        # Step 1: If no routing, collect it first
-        if not routing_decision:
-            logger.info("No routing decision found, collecting from user...")
-            async for event in self.routing_agent.run_async(ctx):
-                yield event
-            routing_decision = ctx.session.state.get("routing_decision")
-
-        # Step 2: If routing exists (either was there or just collected), delegate to interview
-        if routing_decision:
-            interview_type = routing_decision.get("interview_type", "unknown")
-            company = routing_decision.get("company", "unknown")
-            logger.info(f"Delegating to {interview_type} interview for {company}")
-
-            # Lazy-create orchestrator using factory
-            if self._interview_orchestrator is None:
-                try:
-                    logger.info("Creating interview orchestrator")
-                    orchestrator = await InterviewFactory.create_interview_orchestrator(
-                        routing_decision
-                    )
-                    self._interview_orchestrator = orchestrator
-                except (NotImplementedError, ValueError) as e:
-                    logger.warning(str(e))
-                    return
-
-            # Run orchestrator
-            async for event in self._interview_orchestrator.run_async(ctx):
-                yield event
+    elif phase == "design":
+        # Conduct system design interview
+        interview_question = ctx.session.state.get("interview_question", "")
+        if not interview_question:
+            # Question not yet loaded - prompt to initialize
+            return (
+                "The design phase is ready to begin. "
+                "Use the initialize_design_phase tool to load the interview question."
+            )
         else:
-            logger.warning("No routing decision found after routing agent")
+            # Question loaded - conduct interview
+            return load_prompt(
+                "design_phase.txt",
+                company=company,
+                interview_type=interview_type,
+                candidate_name=candidate_name,
+                interview_question=interview_question,
+            )
+
+    elif phase == "closing":
+        # Wrap up and thank candidate
+        return load_prompt(
+            "closing_agent.txt",
+            company=company,
+            interview_type=interview_type,
+            candidate_name=candidate_name,
+        )
+
+    else:  # phase == "done"
+        # Interview complete
+        return "Interview is complete. Thank the candidate and end the session."
 
 
-# Create the root agent instance
-root_agent = RootCustomAgent()
+# Root agent - Single LlmAgent with Live API for persistent connection
+root_agent = Agent(
+    name="interview_agent",
+    model=MODEL_WITH_AUDIO,
+    description="Conducts technical interviews with multi-phase flow",
+    instruction=get_dynamic_instruction,  # Dynamic instruction based on phase
+    tools=[
+        # Routing phase tools
+        set_routing_decision,
+        # Intro phase tools
+        save_candidate_info,
+        # Design phase tools
+        initialize_design_phase,
+        mark_design_complete,
+        # Closing phase tools
+        mark_interview_complete,
+    ],
+)
