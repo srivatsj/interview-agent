@@ -9,6 +9,26 @@ description: Comprehensive guide for building AI agents using Google's Agent Dev
 
 This skill provides comprehensive guidance for building sophisticated AI agents using Google's Agent Development Kit (ADK), an open-source Python framework optimized for Gemini models but supporting any LLM. ADK enables code-first agent development with modular multi-agent systems, rich tool ecosystems, and flexible deployment options.
 
+## How to Use This Skill
+
+**Quick Start:** Follow the Quick Start section below for basic agent setup
+
+**Learning & Building:**
+- **Patterns & Examples:** See SKILL.md sections (Tool Integration, Multi-Agent Coordination, Common Patterns)
+- **Code Snippets:** `references/examples.md` for quick copy-paste examples
+- **Working Samples:** `samples/adk-samples/` for complete runnable examples
+- **API Reference:** `references/core_concepts.md` for condensed API docs or `docs/adk-docs/docs/` for complete documentation
+
+**A2A Protocol:**
+- **Quick Guide:** See "Agent as Tool" and "Multi-Agent Coordination" sections in SKILL.md
+- **Protocol Spec:** `samples/A2A/docs/specification.md`
+- **Samples:** `samples/a2a-samples/samples/python/` for client/server examples
+- **Detailed Docs:** `docs/adk-docs/docs/a2a/` for ADK-specific A2A integration
+
+**Production Deployment:**
+- **Quick Guide:** `references/deployment_best_practices.md`
+- **Complete Guides:** `docs/adk-docs/docs/deploy/` for Cloud Run, Vertex AI, GKE
+
 ## When to Use ADK
 
 Build ADK agents when you need:
@@ -537,35 +557,97 @@ def my_tool(tool_context):
     prefs = tool_context.state.get('user_preferences', {})
 ```
 
-## Reference Materials
+## Documentation
 
-This skill includes comprehensive reference documentation:
+Official ADK and A2A documentation cloned locally:
+
+### Core Documentation
+**Base:** `.claude/skills/adk/docs/adk-docs/docs/`
+
+**Key Topics:**
+- **Agents:** `agents/` - LlmAgent, workflow agents (Sequential, Parallel, Loop), multi-agent patterns, custom agents
+- **Tools:** `tools/` - Function tools, built-in tools, MCP tools, authentication, third-party integrations
+- **A2A Protocol:** `a2a/` - Exposing agents via A2A, consuming remote agents, quickstarts
+- **Streaming:** `streaming/` - Custom WebSocket streaming, bidirectional audio/video, configuration
+- **Sessions & State:** `sessions/` - State management, memory, session services, express mode
+- **Deployment:** `deploy/` - Cloud Run, Vertex AI Agent Engine, GKE deployment guides
+- **Get Started:** `get-started/` - Installation, quickstart, language-specific guides
+- **Context:** `context/` - Caching, compaction for managing token limits
+- **MCP:** `mcp/` - Model Context Protocol integration
+- **Safety:** `safety/` - Content filtering and safety configurations
+- **Observability:** `observability/` - Logging, monitoring, debugging
+
+**Use when:** Need detailed API reference, advanced patterns, deployment strategies, or troubleshooting
+
+### A2A Protocol Specification
+**Base:** `.claude/skills/adk/samples/A2A/docs/`
+
+**Key Topics:**
+- `specification.md` - Complete A2A protocol specification
+- `sdk/python/` - Python SDK documentation for A2A
+- `topics/` - Protocol design topics and patterns
+- `tutorials/` - Step-by-step A2A implementation guides
+
+**Use when:** Implementing A2A protocol, multi-framework orchestration, custom agent communication
+
+## Sample Code
+
+Cloned samples available locally for reference:
+
+### ADK Samples
+**Location:** `.claude/skills/adk/samples/adk-samples/python/agents/`
+
+Key examples:
+- `realtime-conversational-agent/` - Bidirectional audio/video streaming with Gemini Live API
+- `customer-service/` - Multi-agent coordinator pattern with specialists
+- `travel-concierge/` - Sequential pipeline with state passing
+- `RAG/` - Google RAG Engine integration
+- `data-science/` - Parallel agent execution patterns
+- See `README.md` in agents directory for complete catalog
+
+### A2A Protocol Samples
+**Location:** `.claude/skills/adk/samples/a2a-samples/samples/python/`
+
+Key directories:
+- `agents/` - A2A server implementations (ADK, LangGraph, CrewAI, AG2, etc.)
+  - `adk_expense_reimbursement/` - ADK agent exposed via A2A
+  - `langgraph/` - LangGraph agent with A2A protocol
+  - `birthday_planner_adk/` - Multi-agent ADK system with A2A
+- `hosts/` - A2A client/orchestrator patterns
+  - `multiagent/` - Orchestrating multiple remote A2A agents
+  - `a2a_multiagent_host/` - Host coordinating remote agents
+  - `cli/` - Command-line A2A client
+
+**Use when:** Need working code examples, want to see patterns in action
+
+## Quick Reference (Skill-Specific)
+
+Condensed reference guides in this skill for quick lookup:
 
 ### references/core_concepts.md
-Complete API reference covering:
+Condensed API reference covering key concepts:
 - All agent types with parameters and examples
 - Tool system architecture and implementation
 - Multi-agent patterns and communication
-- Session/state management details
+- Session/state management essentials
 - Model configuration and authentication
 - Common architectural patterns
 
-**When to read:** Building agents, implementing tools, designing multi-agent systems
+**When to use:** Quick lookup for API signatures, common patterns. For detailed API docs, see `docs/adk-docs/docs/`
 
 ### references/deployment_best_practices.md
-Production deployment guide covering:
+Production deployment essentials:
 - Development workflow and project structure
 - Deployment options (Cloud Run, Vertex AI, containers)
 - Performance optimization strategies
 - Security best practices
 - Testing and debugging techniques
 - Common pitfalls and solutions
-- A2A protocol implementation
 
-**When to read:** Deploying to production, optimizing performance, troubleshooting issues
+**When to use:** Quick deployment guidance. For complete deployment guides, see `docs/adk-docs/docs/deploy/`
 
 ### references/examples.md
-Quick-start code examples covering:
+Quick-start code snippets:
 - Minimal agent setup
 - Agents with custom tools
 - Sequential pipelines
@@ -573,9 +655,8 @@ Quick-start code examples covering:
 - Coordinator patterns
 - Loop-based refinement
 - Error handling patterns
-- Testing strategies
 
-**When to read:** Getting started, need working examples, learning patterns
+**When to use:** Quick code snippets. For complete working examples, see `samples/adk-samples/`
 
 ## Decision Guide
 
