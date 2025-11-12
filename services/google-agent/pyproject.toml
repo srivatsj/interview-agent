@@ -1,0 +1,59 @@
+[project]
+name = "google-agent"
+version = "0.1.0"
+description = "Google system design interview agent exposed via A2A protocol"
+requires-python = ">=3.10"
+dependencies = [
+    "google-adk[a2a]>=1.17.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8.4",
+]
+
+[tool.ruff]
+# Target Python 3.10+
+target-version = "py310"
+
+# Line length
+line-length = 100
+
+# Exclude directories
+exclude = [
+    ".git",
+    ".pytest_cache",
+    "__pycache__",
+    "*.egg-info",
+    ".venv",
+    "venv",
+]
+
+[tool.ruff.format]
+# Use double quotes for strings
+quote-style = "double"
+
+# Indent with spaces
+indent-style = "space"
+
+# Respect magic trailing comma
+skip-magic-trailing-comma = false
+
+# Auto-detect line ending
+line-ending = "auto"
+
+[tool.ruff.lint]
+# Enable pycodestyle (E, W), Pyflakes (F), and isort (I)
+select = ["E", "F", "I", "W"]
+
+# E402: Module level import not at top of file - enforce imports always at top
+# PLC0415: Import outside top-level - disallow function-level imports
+extend-select = ["E402", "PLC0415"]
+
+# Ignore specific rules
+ignore = []
+
+# Allow unused variables when prefixed with underscore
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
