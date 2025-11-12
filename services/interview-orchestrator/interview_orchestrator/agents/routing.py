@@ -1,14 +1,15 @@
-"""Tools for interview routing phase.
-
-Determines company and interview type.
-"""
+"""Routing agent for company and interview type selection."""
 
 import logging
+import os
 
+from google.adk.agents import Agent
+from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.tools import ToolContext
 
-from ..agent_providers import AgentProviderRegistry
-from ..schemas import RoutingDecision
+from ..shared.agent_registry import AgentProviderRegistry
+from ..shared.prompts.prompt_loader import load_prompt
+from ..shared.schemas.routing_decision import RoutingDecision
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +21,6 @@ def set_routing_decision(
 ) -> str:
     """Save the routing decision and begin the interview.
 
-    Use this when you've determined which company and interview type the user wants.
-
     Args:
         company: The company (google, meta, amazon, etc.)
         interview_type: The interview type (system_design, coding, or behavioral)
@@ -30,7 +29,6 @@ def set_routing_decision(
     Returns:
         Confirmation message or error if combination is invalid
     """
-    # Validate using registry
     if not AgentProviderRegistry.is_valid_combination(company, interview_type):
         available = AgentProviderRegistry.get_formatted_options()
         return (
@@ -44,7 +42,6 @@ def set_routing_decision(
         confidence=1.0,
     )
 
-    # Save to session state and transition to intro
     tool_context.state["routing_decision"] = routing_decision.model_dump()
     tool_context.state["interview_phase"] = "intro"
 
@@ -54,3 +51,20 @@ def set_routing_decision(
         f"Routing saved: {company.lower()} {interview_type.lower()}. "
         "Starting interview intro phase."
     )
+
+
+def get_routing_instruction(ctx: ReadonlyContext) -> str:
+    """Get routing instruction with available options."""
+    return load_prompt(
+        "routing_agent.txt",
+        available_options=AgentProviderRegistry.get_formatted_options(),
+    )
+
+
+routing_agent = Agent(
+    name="routing_agent",
+    model=os.getenv("AGENT_MODEL", "gemini-2.0-flash-exp"),
+    description="Helps user choose company and interview type",
+    instruction=get_routing_instruction,
+    tools=[set_routing_decision],
+)

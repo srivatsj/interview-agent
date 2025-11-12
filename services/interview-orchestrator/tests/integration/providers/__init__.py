@@ -1,1 +1,0 @@
-"""Integration test providers package."""

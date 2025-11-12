@@ -74,3 +74,8 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 # Allow function-level imports only in server.py (uses inline # noqa for specific test cases)
 [tool.ruff.lint.per-file-ignores]
 "interview_orchestrator/server.py" = ["PLC0415"]  # Needed to avoid import errors
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.4",
+]

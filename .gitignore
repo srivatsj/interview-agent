@@ -26,3 +26,8 @@ samples/
 
 # Claude Code
 .claude/settings.local.json
+
+# Test services
+services/orchestrator2/
+services/test_remote/
+services/test_remote_uber/

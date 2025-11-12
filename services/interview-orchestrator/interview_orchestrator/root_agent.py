@@ -1,25 +1,20 @@
-"""Root Agent - Single LlmAgent with State-Driven Instruction.
+"""Root Agent - Coordinator with Dynamic Sub-Agents.
 
-Uses Live API for persistent bidirectional audio/video streaming.
-Adapts behavior based on interview_phase state.
+Uses sub-agents for each interview phase with dynamic interview agent selection.
+Phase flow: routing → intro → interview → closing → done
 """
 
 import logging
+import os
 
 from dotenv import load_dotenv
 from google.adk.agents import Agent
 from google.adk.agents.readonly_context import ReadonlyContext
 
-from .interview_types.system_design.design_agent_tool import (
-    initialize_design_phase,
-    mark_design_complete,
-)
-from .shared.agent_providers import AgentProviderRegistry
-from .shared.constants import MODEL_WITH_AUDIO
-from .shared.prompts.prompt_loader import load_prompt
-from .shared.tools.closing_tools import mark_interview_complete
-from .shared.tools.intro_tools import save_candidate_info
-from .shared.tools.routing_tools import set_routing_decision
+from .agents.closing import closing_agent
+from .agents.interview_types.builder import build_interview_agent
+from .agents.intro import intro_agent
+from .agents.routing import routing_agent
 
 # Load environment variables
 load_dotenv()
@@ -27,87 +22,60 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 
-def get_dynamic_instruction(ctx: ReadonlyContext) -> str:
-    """Generate instruction based on current interview phase.
-
-    Instruction adapts to: routing → intro → design → closing → done
-    State changes via tools trigger automatic instruction updates.
-
-    Args:
-        ctx: Readonly context with session state
+def _get_dynamic_sub_agents(ctx: ReadonlyContext) -> list[Agent]:
+    """Build sub-agents list with dynamic interview agent.
 
     Returns:
-        Phase-specific instruction string
+        List of sub-agents with interview agent selected based on state
     """
     phase = ctx.session.state.get("interview_phase", "routing")
-    routing = ctx.session.state.get("routing_decision", {})
-    candidate_info = ctx.session.state.get("candidate_info", {})
 
-    company = routing.get("company", "COMPANY")
-    interview_type = routing.get("interview_type", "INTERVIEW_TYPE")
-    candidate_name = candidate_info.get("name", "CANDIDATE")
+    base_agents = [routing_agent, intro_agent, closing_agent]
+
+    # Add interview agent dynamically when in interview phase
+    if phase == "interview":
+        routing = ctx.session.state.get("routing_decision", {})
+        company = routing["company"]
+        interview_type = routing["interview_type"]
+
+        try:
+            interview_agent = build_interview_agent(interview_type, company)
+            base_agents.insert(2, interview_agent)
+        except ValueError as e:
+            logger.error(f"Failed to build interview agent: {e}")
+            raise
+
+    return base_agents
+
+
+def _get_coordinator_instruction(ctx: ReadonlyContext) -> str:
+    """State-based coordinator instruction.
+
+    Deterministic routing based on interview_phase state.
+    """
+    phase = ctx.session.state.get("interview_phase", "routing")
 
     if phase == "routing":
-        # Ask user for company and interview type preferences
-        available_options = AgentProviderRegistry.get_formatted_options()
-        return load_prompt("routing_agent.txt", available_options=available_options)
-
+        return "TRANSFER to routing_agent immediately."
     elif phase == "intro":
-        # Collect candidate background information
-        return load_prompt(
-            "intro_agent.txt",
-            company=company,
-            interview_type=interview_type,
-        )
-
-    elif phase == "design":
-        # Conduct system design interview
-        interview_question = ctx.session.state.get("interview_question", "")
-        if not interview_question:
-            # Question not yet loaded - prompt to initialize
-            return (
-                "The design phase is ready to begin. "
-                "Use the initialize_design_phase tool to load the interview question."
-            )
-        else:
-            # Question loaded - conduct interview
-            return load_prompt(
-                "design_phase.txt",
-                company=company,
-                interview_type=interview_type,
-                candidate_name=candidate_name,
-                interview_question=interview_question,
-            )
-
+        return "TRANSFER to intro_agent immediately."
+    elif phase == "interview":
+        routing = ctx.session.state.get("routing_decision", {})
+        interview_type = routing.get("interview_type", "interview")
+        agent_name = f"{interview_type}_agent"
+        return f"TRANSFER to {agent_name} immediately."
     elif phase == "closing":
-        # Wrap up and thank candidate
-        return load_prompt(
-            "closing_agent.txt",
-            company=company,
-            interview_type=interview_type,
-            candidate_name=candidate_name,
-        )
-
-    else:  # phase == "done"
-        # Interview complete
-        return "Interview is complete. Thank the candidate and end the session."
+        return "TRANSFER to closing_agent immediately."
+    else:  # done
+        return "Session complete. Say goodbye!"
 
 
-# Root agent - Single LlmAgent with Live API for persistent connection
+# Root coordinator agent
 root_agent = Agent(
-    name="interview_agent",
-    model=MODEL_WITH_AUDIO,
-    description="Conducts technical interviews with multi-phase flow",
-    instruction=get_dynamic_instruction,  # Dynamic instruction based on phase
-    tools=[
-        # Routing phase tools
-        set_routing_decision,
-        # Intro phase tools
-        save_candidate_info,
-        # Design phase tools
-        initialize_design_phase,
-        mark_design_complete,
-        # Closing phase tools
-        mark_interview_complete,
-    ],
+    name="interview_coordinator",
+    model=os.getenv("AGENT_MODEL", "gemini-2.0-flash-exp"),
+    description="Interview coordinator with dynamic sub-agents",
+    instruction=_get_coordinator_instruction,
+    sub_agents=_get_dynamic_sub_agents,
+    tools=[],
 )
