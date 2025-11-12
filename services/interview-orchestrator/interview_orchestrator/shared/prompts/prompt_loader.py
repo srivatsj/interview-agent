@@ -1,5 +1,6 @@
 """Prompt loading utilities"""
 
+import os
 from pathlib import Path
 
 
@@ -13,6 +14,10 @@ def load_prompt(filename: str, **kwargs) -> str:
     Returns:
         Formatted prompt string
     """
-    prompt_path = Path(__file__).parent / filename
+    # Select dev or prod folder based on DEV_MODE env variable
+    dev_mode = os.getenv("DEV_MODE", "false").lower() == "true"
+    folder = "dev" if dev_mode else "prod"
+
+    prompt_path = Path(__file__).parent / folder / filename
     prompt = prompt_path.read_text()
     return prompt.format(**kwargs)

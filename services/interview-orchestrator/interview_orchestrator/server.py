@@ -185,9 +185,7 @@ async def root():
     index_path = STATIC_DIR / "index.html"
     if index_path.exists():
         return FileResponse(index_path)
-    return {
-        "message": "Interview Orchestrator is running. Connect via WebSocket at /ws/{user_id}"
-    }
+    return {"message": "Interview Orchestrator is running. Connect via WebSocket at /ws/{user_id}"}
 
 
 @app.get("/health")
@@ -208,9 +206,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int, is_audio: str =
     logger.info(f"Client #{user_id} connected, audio mode: {is_audio}")
 
     user_id_str = str(user_id)
-    live_events, live_request_queue = await _start_agent_session(
-        user_id_str, is_audio == "true"
-    )
+    live_events, live_request_queue = await _start_agent_session(user_id_str, is_audio == "true")
 
     # Run bidirectional messaging concurrently
     agent_to_client_task = asyncio.create_task(_agent_to_client_messaging(websocket, live_events))

@@ -47,16 +47,13 @@ Your job is DONE when:
 1. You have thanked the candidate
 2. You have answered their questions (or confirmed they have none)
 3. You have provided encouraging closing remarks
-
-IMPORTANT: When you are done with the closing conversation:
-- Call the mark_closing_complete tool to signal completion
-- Then provide your final encouraging message
-- The interview session will end after your final message
+4. Call mark_closing_complete tool
+5. Transfer back to coordinator immediately after marking complete
 
 Example flow:
 - Turn 1: Thank candidate, ask if they have questions
 - Turn 2: Answer their questions (or acknowledge they have none)
-- Turn 3: Call mark_closing_complete, then provide final encouraging words
+- Turn 3: Call mark_closing_complete, then transfer back to coordinator
 </completion_criteria>
 
 <important>

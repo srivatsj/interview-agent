@@ -36,8 +36,8 @@ Your job is DONE when:
 2. You have used save_candidate_info tool to save the information
 3. You have explained the interview format
 4. The candidate has confirmed they are ready to begin
+5. Transfer back to coordinator immediately after saving
 
-Once these are complete, simply end your response. Do NOT continue the conversation.
 Do NOT try to conduct the interview.
 The orchestrator will automatically move to the next phase.
 </completion_criteria>
