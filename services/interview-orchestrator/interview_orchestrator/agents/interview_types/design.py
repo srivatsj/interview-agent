@@ -1,12 +1,11 @@
 """System design interview agent."""
 
-import os
-
 from google.adk.agents import Agent
 from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.tools import ToolContext
 
 from ...shared.agent_registry import AgentProviderRegistry
+from ...shared.constants import get_gemini_model
 from ...shared.prompts.prompt_loader import load_prompt
 
 
@@ -38,8 +37,11 @@ def _get_design_instruction(ctx: ReadonlyContext) -> str:
 # System design interview agent
 design_interview_agent = Agent(
     name="design_interview_agent",
-    model=os.getenv("AGENT_MODEL", "gemini-2.0-flash-exp"),
+    model=get_gemini_model(),
     description="Conducts system design interview",
     instruction=_get_design_instruction,
-    tools=[*AgentProviderRegistry.get_remote_agent_tools("system_design"), _mark_design_complete],
+    tools=[
+        *AgentProviderRegistry.get_remote_agent_tools("system_design"),
+        _mark_design_complete,
+    ],
 )

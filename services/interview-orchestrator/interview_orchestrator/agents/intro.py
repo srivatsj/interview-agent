@@ -1,11 +1,10 @@
 """Intro agent for collecting candidate information."""
 
-import os
-
 from google.adk.agents import Agent
 from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.tools import ToolContext
 
+from ..shared.constants import get_gemini_model
 from ..shared.prompts.prompt_loader import load_prompt
 from ..shared.schemas.candidate_info import CandidateInfo
 
@@ -57,7 +56,7 @@ def get_intro_instruction(ctx: ReadonlyContext) -> str:
 
 intro_agent = Agent(
     name="intro_agent",
-    model=os.getenv("AGENT_MODEL", "gemini-2.0-flash-exp"),
+    model=get_gemini_model(),
     description="Collects candidate background information",
     instruction=get_intro_instruction,
     tools=[save_candidate_info],

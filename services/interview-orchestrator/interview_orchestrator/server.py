@@ -17,10 +17,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.websockets import WebSocketDisconnect
 from google.adk.agents import LiveRequestQueue
-from google.adk.agents.run_config import RunConfig, StreamingMode
-from google.adk.runners import Runner
-from google.adk.sessions.in_memory_session_service import InMemorySessionService
-from google.genai import types
+from google.adk.agents.run_config import RunConfig
+from google.adk.runners import InMemoryRunner
 from google.genai.types import Blob, Content, Part
 
 from .root_agent import root_agent
@@ -28,64 +26,60 @@ from .root_agent import root_agent
 # Load environment variables
 load_dotenv()
 
+# Configure logging - suppress verbose audio chunk logs
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+# Suppress noisy loggers completely
+logging.getLogger('google_adk.google.adk.flows.llm_flows.audio_cache_manager').setLevel(logging.ERROR)
+logging.getLogger('google_adk.google.adk.models.gemini_llm_connection').setLevel(logging.ERROR)
+logging.getLogger('google_adk.google.adk.flows.llm_flows.base_llm_flow').setLevel(logging.ERROR)
+logging.getLogger('websockets.client').setLevel(logging.ERROR)
+logging.getLogger('websockets.protocol').setLevel(logging.ERROR)
+logging.getLogger('websockets.server').setLevel(logging.ERROR)
+
 logger = logging.getLogger(__name__)
 
 # Application configuration
 APP_NAME = "interview_orchestrator"
 
-# Initialize session service
-session_service = InMemorySessionService()
-
-# Create Runner instance
-runner = Runner(
-    app_name=APP_NAME,
-    agent=root_agent,
-    session_service=session_service,
-)
-
 
 async def _start_agent_session(user_id: str, is_audio: bool = False):
-    """Start an agent session with bidirectional streaming.
+    """Start an agent session."""
 
-    Args:
-        user_id: Unique client identifier
-        is_audio: True for audio responses, False for text
+    # Create a Runner per session
+    runner = InMemoryRunner(
+        app_name=APP_NAME,
+        agent=root_agent
+    )
 
-    Returns:
-        Tuple of (live_events, live_request_queue)
-    """
-    session_id = f"{APP_NAME}_{user_id}"
-    session = await runner.session_service.get_session(
+    # Create a Session
+    session = await runner.session_service.create_session(
         app_name=APP_NAME,
         user_id=user_id,
-        session_id=session_id,
-    )
-    if not session:
-        session = await runner.session_service.create_session(
-            app_name=APP_NAME,
-            user_id=user_id,
-            session_id=session_id,
-        )
-
-    # Configure response format
-    model_name = root_agent.model if isinstance(root_agent.model, str) else root_agent.model.model
-    is_native_audio = "native-audio" in model_name.lower()
-    modality = "AUDIO" if (is_audio or is_native_audio) else "TEXT"
-
-    run_config = RunConfig(
-        streaming_mode=StreamingMode.BIDI,
-        response_modalities=[modality],
-        session_resumption=types.SessionResumptionConfig(),
-        output_audio_transcription=types.AudioTranscriptionConfig()
-        if (is_audio or is_native_audio)
-        else None,
     )
 
+    # Create a LiveRequestQueue for this session
     live_request_queue = LiveRequestQueue()
 
+    # Setup RunConfig
+    # NOTE: session_resumption with transparent=True is NOT supported in current Gemini API
+    # IMPORTANT: When using test_multiagent, agents already have speech_config in Gemini() wrapper
+    # so we should NOT set it again in RunConfig to avoid conflicts
+
+    # Minimal RunConfig - speech_config is in agent models
+    run_config = RunConfig(
+        streaming_mode="bidi",
+        response_modalities = ["AUDIO"],
+        output_audio_transcription = {},
+        input_audio_transcription = {},
+    )
+
+    # Start agent session
     live_events = runner.run_live(
-        user_id=user_id,
-        session_id=session.id,
+        session=session,
         live_request_queue=live_request_queue,
         run_config=run_config,
     )
@@ -94,49 +88,105 @@ async def _start_agent_session(user_id: str, is_audio: bool = False):
 
 
 async def _agent_to_client_messaging(websocket: WebSocket, live_events):
-    """Stream agent responses to the WebSocket client."""
+    """Stream agent responses to the WebSocket client.
+
+    Uses structured message format matching the working ADK sample.
+    Each message contains all event data in a single structured object.
+    """
+    logger.info("Agent-to-client messaging started")
+    event_count = 0
     try:
         async for event in live_events:
-            # Handle output audio transcription
-            if event.output_transcription and event.output_transcription.text:
-                transcript_text = event.output_transcription.text
-                message = {
-                    "mime_type": "text/plain",
-                    "data": transcript_text,
-                    "is_transcript": True,
-                }
-                await websocket.send_text(json.dumps(message))
-                logger.debug(f"[AGENT TO CLIENT]: audio transcript: {transcript_text}")
+            event_count += 1
+            logger.debug(f"Event #{event_count} received from {event.author}")
+            # Create structured message matching working ADK sample format
+            message_to_send = {
+                "author": event.author or "agent",
+                "is_partial": event.partial or False,
+                "turn_complete": event.turn_complete or False,
+                "interrupted": event.interrupted or False,
+                "parts": [],
+                "input_transcription": None,
+                "output_transcription": None
+            }
 
-            # Read the Content and its first Part
-            part: Part = event.content and event.content.parts and event.content.parts[0]
-            if part:
-                # Handle audio data
-                is_audio = part.inline_data and part.inline_data.mime_type.startswith("audio/pcm")
-                if is_audio:
-                    audio_data = part.inline_data and part.inline_data.data
-                    if audio_data:
-                        message = {
-                            "mime_type": "audio/pcm",
-                            "data": base64.b64encode(audio_data).decode("ascii"),
-                        }
-                        await websocket.send_text(json.dumps(message))
-                        logger.debug(f"[AGENT TO CLIENT]: audio/pcm: {len(audio_data)} bytes")
+            # If no content, send only turn events if present
+            if not event.content:
+                if message_to_send["turn_complete"] or message_to_send["interrupted"]:
+                    await websocket.send_text(json.dumps(message_to_send))
+                    logger.info(
+                        f"Turn event from {event.author}: "
+                        f"complete={message_to_send['turn_complete']}, "
+                        f"interrupted={message_to_send['interrupted']}"
+                    )
+                continue
 
-                # Handle text data (partial streaming)
-                if part.text and event.partial:
-                    message = {"mime_type": "text/plain", "data": part.text}
-                    await websocket.send_text(json.dumps(message))
-                    logger.debug(f"[AGENT TO CLIENT]: text/plain: {part.text}")
+            # Collect all text for transcription
+            transcription_text = "".join(part.text for part in event.content.parts if part.text)
 
-            # Handle turn completion and interruption
-            if event.turn_complete or event.interrupted:
-                message = {
-                    "turn_complete": event.turn_complete,
-                    "interrupted": event.interrupted,
-                }
-                await websocket.send_text(json.dumps(message))
-                logger.debug(f"[AGENT TO CLIENT]: {message}")
+            # Handle user input transcription
+            if hasattr(event.content, "role") and event.content.role == "user":
+                if transcription_text:
+                    message_to_send["input_transcription"] = {
+                        "text": transcription_text,
+                        "is_final": not event.partial
+                    }
+                    if not event.partial:
+                        logger.info(f"User: {transcription_text}")
+
+            # Handle agent/model responses (role can be "model", "agent", or None)
+            elif not (hasattr(event.content, "role") and event.content.role == "user"):
+                # Add output transcription if available
+                if transcription_text:
+                    message_to_send["output_transcription"] = {
+                        "text": transcription_text,
+                        "is_final": not event.partial
+                    }
+                    message_to_send["parts"].append({"type": "text", "data": transcription_text})
+                    if not event.partial:
+                        logger.info(f"{event.author}: {transcription_text}")
+
+                # Process all parts
+                for part in event.content.parts:
+                    # Handle audio data
+                    if part.inline_data and part.inline_data.mime_type.startswith("audio/pcm"):
+                        audio_data = part.inline_data.data
+                        encoded_audio = base64.b64encode(audio_data).decode("ascii")
+                        message_to_send["parts"].append({
+                            "type": "audio/pcm",
+                            "data": encoded_audio
+                        })
+
+                    # Handle function calls
+                    elif part.function_call:
+                        message_to_send["parts"].append({
+                            "type": "function_call",
+                            "data": {
+                                "name": part.function_call.name,
+                                "args": part.function_call.args or {}
+                            }
+                        })
+                        logger.info(f"{event.author} -> {part.function_call.name}()")
+
+                    # Handle function responses
+                    elif part.function_response:
+                        message_to_send["parts"].append({
+                            "type": "function_response",
+                            "data": {
+                                "name": part.function_response.name,
+                                "response": part.function_response.response or {}
+                            }
+                        })
+
+            # Send message if it has content or status changes
+            if (message_to_send["parts"] or
+                message_to_send["turn_complete"] or
+                message_to_send["interrupted"] or
+                message_to_send["input_transcription"] or
+                message_to_send["output_transcription"]):
+
+                json_message = json.dumps(message_to_send)
+                await websocket.send_text(json_message)
 
     except WebSocketDisconnect:
         logger.info("Client disconnected from agent_to_client_messaging")
@@ -156,11 +206,18 @@ async def _client_to_agent_messaging(websocket: WebSocket, live_request_queue: L
             if mime_type == "text/plain":
                 content = Content(role="user", parts=[Part.from_text(text=data)])
                 live_request_queue.send_content(content=content)
-                logger.debug(f"[CLIENT TO AGENT]: {data}")
-            elif mime_type == "audio/pcm":
+                logger.debug(f"Text message from client: {data}")
+            elif mime_type in ["audio/pcm", "audio/webm"]:
                 decoded_data = base64.b64decode(data)
                 live_request_queue.send_realtime(Blob(data=decoded_data, mime_type=mime_type))
-                logger.debug(f"[CLIENT TO AGENT]: audio/pcm: {len(decoded_data)} bytes")
+            elif mime_type == "image/png":
+                decoded_data = base64.b64decode(data)
+                content = Content(
+                    role="user",
+                    parts=[Part(inline_data=Blob(data=decoded_data, mime_type=mime_type))],
+                )
+                live_request_queue.send_content(content=content)
+                logger.debug(f"Image from client: {len(decoded_data)} bytes")
             else:
                 raise ValueError(f"Mime type not supported: {mime_type}")
 
@@ -191,7 +248,10 @@ async def root():
 @app.get("/health")
 async def health():
     """Health check endpoint."""
-    return {"status": "healthy", "agent": root_agent.name}
+    return {
+        "status": "healthy",
+        "agent": root_agent.name
+    }
 
 
 @app.websocket("/ws/{user_id}")
@@ -203,10 +263,11 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int, is_audio: str =
         is_audio: "true" for audio mode, "false" for text mode
     """
     await websocket.accept()
-    logger.info(f"Client #{user_id} connected, audio mode: {is_audio}")
+    logger.info(f"Client {user_id} connected (audio={is_audio})")
 
     user_id_str = str(user_id)
     live_events, live_request_queue = await _start_agent_session(user_id_str, is_audio == "true")
+    logger.info(f"Agent session started for user {user_id}")
 
     # Run bidirectional messaging concurrently
     agent_to_client_task = asyncio.create_task(_agent_to_client_messaging(websocket, live_events))

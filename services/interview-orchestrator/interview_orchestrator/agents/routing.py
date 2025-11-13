@@ -1,13 +1,13 @@
 """Routing agent for company and interview type selection."""
 
 import logging
-import os
 
 from google.adk.agents import Agent
 from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.tools import ToolContext
 
 from ..shared.agent_registry import AgentProviderRegistry
+from ..shared.constants import get_gemini_model
 from ..shared.prompts.prompt_loader import load_prompt
 from ..shared.schemas.routing_decision import RoutingDecision
 
@@ -22,7 +22,7 @@ def set_routing_decision(
     """Save the routing decision and begin the interview.
 
     Args:
-        company: The company (google, meta, amazon, etc.)
+        company: The company (google, meta, etc.)
         interview_type: The interview type (system_design, coding, or behavioral)
         tool_context: Tool execution context
 
@@ -57,13 +57,13 @@ def get_routing_instruction(ctx: ReadonlyContext) -> str:
     """Get routing instruction with available options."""
     return load_prompt(
         "routing_agent.txt",
-        available_options=AgentProviderRegistry.get_formatted_options(),
+        available_options="Google, Meta", #AgentProviderRegistry.get_formatted_options(),
     )
 
 
 routing_agent = Agent(
     name="routing_agent",
-    model=os.getenv("AGENT_MODEL", "gemini-2.0-flash-exp"),
+    model=get_gemini_model(),
     description="Helps user choose company and interview type",
     instruction=get_routing_instruction,
     tools=[set_routing_decision],

@@ -5,7 +5,6 @@ Phase flow: routing → intro → interview → closing → done
 """
 
 import logging
-import os
 
 from dotenv import load_dotenv
 from google.adk.agents import Agent
@@ -15,6 +14,7 @@ from .agents.closing import closing_agent
 from .agents.interview import interview_agent
 from .agents.intro import intro_agent
 from .agents.routing import routing_agent
+from .shared.constants import get_gemini_model
 
 # Load environment variables
 load_dotenv()
@@ -30,7 +30,10 @@ def _get_coordinator_instruction(ctx: ReadonlyContext) -> str:
     phase = ctx.session.state.get("interview_phase", "routing")
 
     if phase == "routing":
-        return "TRANSFER to routing_agent immediately."
+        return (
+            "The user has started the conversation. TRANSFER to routing_agent "
+            "immediately, using the 'transfer_to_agent' tool, to begin the interview."
+        )
     elif phase == "intro":
         return "TRANSFER to intro_agent immediately."
     elif phase == "interview":
@@ -44,8 +47,12 @@ def _get_coordinator_instruction(ctx: ReadonlyContext) -> str:
 # Root coordinator agent
 root_agent = Agent(
     name="interview_coordinator",
-    model=os.getenv("AGENT_MODEL", "gemini-2.0-flash-exp"),
+    model=get_gemini_model(),
     description="Interview coordinator managing interview flow",
+    global_instruction=(
+        "You are an interview coordinator. Guide candidates through their "
+        "technical interview practice session."
+    ),
     instruction=_get_coordinator_instruction,
     sub_agents=[routing_agent, intro_agent, interview_agent, closing_agent],
     tools=[],

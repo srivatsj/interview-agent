@@ -1,13 +1,12 @@
 """Coding interview agent."""
 
-import os
-
 from google.adk.agents import Agent
 from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.code_executors import BuiltInCodeExecutor
 from google.adk.tools import ToolContext
 
 from ...shared.agent_registry import AgentProviderRegistry
+from ...shared.constants import get_gemini_model
 from ...shared.prompts.prompt_loader import load_prompt
 
 
@@ -39,9 +38,12 @@ def _get_coding_instruction(ctx: ReadonlyContext) -> str:
 # Coding interview agent with code executor
 coding_interview_agent = Agent(
     name="coding_interview_agent",
-    model=os.getenv("AGENT_MODEL", "gemini-2.0-flash-exp"),
+    model=get_gemini_model(),
     description="Conducts coding interview with code execution capabilities",
     instruction=_get_coding_instruction,
     code_executor=BuiltInCodeExecutor(),
-    tools=[*AgentProviderRegistry.get_remote_agent_tools("coding"), _mark_coding_complete],
+    tools=[
+        *AgentProviderRegistry.get_remote_agent_tools("coding"),
+        _mark_coding_complete,
+    ],
 )

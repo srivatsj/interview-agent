@@ -1,34 +1,37 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
+// Message format for sending to backend
 export interface WebSocketMessage {
-  blob?: {
-    mime_type: string;
-    data: string;
-  };
-  content?: {
-    parts: Array<{ text: string }>;
-  };
+  mime_type: 'text/plain' | 'audio/pcm' | 'audio/webm' | 'image/png';
+  data: string; // Text content or base64-encoded data
 }
 
-export interface ADKEvent {
-  type: string;
-  invocation_id?: string;
-  author?: string;
-  content?: {
-    parts: Array<{
-      text?: string;
-      inline_data?: {
-        mime_type: string;
-        data: string;
-      };
-    }>;
-  };
-  [key: string]: unknown;
+// Event part structure matching working ADK sample
+export interface EventPart {
+  type: 'text' | 'audio/pcm' | 'function_call' | 'function_response';
+  data: any;
+}
+
+// Transcription data structure
+export interface TranscriptionData {
+  text: string;
+  is_final: boolean;
+}
+
+// Structured message format received from backend (matching working ADK sample)
+export interface StructuredAgentEvent {
+  author: string;
+  is_partial: boolean;
+  turn_complete: boolean;
+  interrupted: boolean;
+  parts: EventPart[];
+  input_transcription?: TranscriptionData | null;
+  output_transcription?: TranscriptionData | null;
 }
 
 export interface UseWebSocketOptions {
   url: string;
-  onMessage?: (event: ADKEvent) => void;
+  onMessage?: (event: StructuredAgentEvent) => void;
   onConnect?: () => void;
   onDisconnect?: () => void;
   onError?: (error: Event) => void;
@@ -54,16 +57,13 @@ export function useWebSocket({
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      console.log('WebSocket already connected');
       return;
     }
 
     try {
-      console.log(`Connecting to WebSocket: ${url}`);
       const ws = new WebSocket(url);
 
       ws.onopen = () => {
-        console.log('✓ WebSocket connected');
         setIsConnected(true);
         setConnectionError(null);
         setReconnectAttempts(0);
@@ -72,8 +72,7 @@ export function useWebSocket({
 
       ws.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data) as ADKEvent;
-          console.log('← Received:', data.type || 'unknown');
+          const data = JSON.parse(event.data) as StructuredAgentEvent;
           onMessage?.(data);
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error);
@@ -81,13 +80,12 @@ export function useWebSocket({
       };
 
       ws.onerror = (event) => {
-        console.error('✗ WebSocket error:', event);
+        console.error('WebSocket error:', event);
         setConnectionError('WebSocket connection error');
         onError?.(event);
       };
 
       ws.onclose = () => {
-        console.log('WebSocket disconnected');
         setIsConnected(false);
         wsRef.current = null;
         onDisconnect?.();
@@ -95,8 +93,6 @@ export function useWebSocket({
         // Auto-reconnect with exponential backoff
         if (autoConnect && reconnectAttempts < maxReconnectAttempts) {
           const delay = reconnectDelay * Math.pow(2, reconnectAttempts);
-          console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
-
           reconnectTimeoutRef.current = setTimeout(() => {
             setReconnectAttempts((prev) => prev + 1);
             connect();
@@ -106,7 +102,6 @@ export function useWebSocket({
 
       wsRef.current = ws;
     } catch (error) {
-      console.error('Failed to create WebSocket:', error);
       setConnectionError('Failed to create WebSocket connection');
     }
   }, [url, onMessage, onConnect, onDisconnect, onError, autoConnect, reconnectAttempts]);
@@ -118,7 +113,6 @@ export function useWebSocket({
     }
 
     if (wsRef.current) {
-      console.log('Disconnecting WebSocket');
       wsRef.current.close();
       wsRef.current = null;
     }
@@ -128,14 +122,12 @@ export function useWebSocket({
 
   const sendMessage = useCallback((message: WebSocketMessage) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      console.warn('Cannot send message: WebSocket not connected');
       return false;
     }
 
     try {
       const json = JSON.stringify(message);
       wsRef.current.send(json);
-      console.log('→ Sent:', message.blob?.mime_type || message.content?.parts[0]?.text?.slice(0, 50) || 'message');
       return true;
     } catch (error) {
       console.error('Failed to send WebSocket message:', error);
@@ -149,10 +141,12 @@ export function useWebSocket({
       connect();
     }
 
-    return () => {
-      disconnect();
-    };
-  }, [autoConnect, connect, disconnect]);
+    // Don't disconnect on cleanup to avoid issues with React Strict Mode remounts
+    // Users should manually call disconnect() when needed
+    // return () => {
+    //   disconnect();
+    // };
+  }, [autoConnect, connect]);
 
   return {
     isConnected,

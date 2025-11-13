@@ -1,144 +1,145 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { InterviewHeader } from '@/modules/interview/common/ui/components/interview-header';
 import { VideoPanel } from '@/modules/interview/common/ui/components/video-panel';
 import { ExcalidrawCanvas } from '../components/excalidraw-canvas';
 import { useTimer } from '@/modules/interview/common/hooks/use-timer';
-import { useAudioRecorder } from '@/modules/interview/common/hooks/use-audio-recorder';
-import { useAudioPlayer } from '@/modules/interview/common/hooks/use-audio-player';
-import { useCanvasScreenshot } from '@/modules/interview/common/hooks/use-canvas-screenshot';
-import { useWebSocket, type ADKEvent } from '@/modules/interview/common/hooks/use-websocket';
+import { useWebSocket, type StructuredAgentEvent } from '@/modules/interview/common/hooks/use-websocket';
+import { useAudioWorkletRecorder } from '@/modules/interview/common/hooks/use-audio-worklet-recorder';
+import { useAudioWorkletPlayer } from '@/modules/interview/common/hooks/use-audio-worklet-player';
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
 
-// Helper to convert Blob to base64
-async function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result as string;
-      // Remove data:...;base64, prefix
-      const base64Data = base64.split(',')[1];
-      resolve(base64Data);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
 export function SystemDesignInterview() {
-  const [excalidrawAPI, setExcalidrawAPI] = useState<ExcalidrawImperativeAPI | null>(null);
-  const [userId] = useState(() => `user-${Date.now()}`);
-  const [sessionId] = useState(() => `session-${Date.now()}`);
+  // const [excalidrawAPI, setExcalidrawAPI] = useState<ExcalidrawImperativeAPI | null>(null);
+  const [userId] = useState(() => Date.now());
+  const hasConnectedRef = useRef(false);
+  const hasInitializedAudioRef = useRef(false);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const isConnectedRef = useRef(false);
 
   const { formattedTime } = useTimer();
-  const { playAudio } = useAudioPlayer();
 
-  // WebSocket connection
+  // Initialize AudioWorklet player
+  const { initializePlayer, playAudio, flush } = useAudioWorkletPlayer();
+
+  // WebSocket connection - CRITICAL: is_audio=true for audio mode
   const websocketUrl = useMemo(
-    () =>
-      `ws://localhost:8080/run_live?app_name=interview_orchestrator&user_id=${userId}&session_id=${sessionId}`,
-    [userId, sessionId]
+    () => `ws://localhost:8000/ws/${userId}?is_audio=true`,
+    [userId]
   );
 
-  // Handle incoming messages from WebSocket
+  // Handle incoming structured messages from WebSocket
   const handleWebSocketMessage = useCallback(
-    (event: ADKEvent) => {
-      console.log('Received event type:', event.type);
+    (event: StructuredAgentEvent) => {
+      // Handle interruption - flush audio player
+      if (event.interrupted) {
+        flush();
+        return;
+      }
 
-      // Handle AI audio responses
-      if (event.content?.parts) {
-        for (const part of event.content.parts) {
-          // Check for inline audio data
-          if (part.inline_data?.mime_type?.startsWith('audio/')) {
-            const audioData = part.inline_data.data;
-            // Convert base64 to blob URL for playback
-            const audioBlob = new Blob(
-              [Uint8Array.from(atob(audioData), (c) => c.charCodeAt(0))],
-              { type: part.inline_data.mime_type }
-            );
-            const audioUrl = URL.createObjectURL(audioBlob);
-            playAudio(audioUrl);
-          }
+      // Handle turn completion
+      if (event.turn_complete) {
+        return;
+      }
 
-          // Log text responses
-          if (part.text) {
-            console.log('AI:', part.text);
-          }
+      // Process all parts in the event
+      for (const part of event.parts) {
+        if (part.type === 'audio/pcm') {
+          // Play PCM audio using AudioWorklet
+          playAudio(part.data);
         }
       }
     },
-    [playAudio]
+    [playAudio, flush]
   );
 
-  const { isConnected, sendMessage } = useWebSocket({
+  // WebSocket configuration
+  const { isConnected, sendMessage, connect } = useWebSocket({
     url: websocketUrl,
     onMessage: handleWebSocketMessage,
-    onConnect: () => console.log('✓ Connected to interview orchestrator'),
-    onDisconnect: () => console.log('Disconnected from interview orchestrator'),
+    onConnect: () => {
+      isConnectedRef.current = true;
+      // Initialize audio after successful connection
+      initializeAudio();
+    },
+    onDisconnect: () => {
+      isConnectedRef.current = false;
+    },
     onError: (error) => console.error('WebSocket error:', error),
-    autoConnect: true,
+    autoConnect: false,
   });
 
-  // Send audio chunks to WebSocket
-  const handleAudioChunk = useCallback(
-    async (chunk: { blob: Blob; timestamp: number }) => {
-      if (!isConnected) return;
-
-      try {
-        const base64Data = await blobToBase64(chunk.blob);
-        sendMessage({
-          blob: {
-            mime_type: 'audio/webm',
-            data: base64Data,
-          },
-        });
-      } catch (error) {
-        console.error('Failed to send audio chunk:', error);
+  // Send audio data to WebSocket (PCM format)
+  const handleAudioData = useCallback(
+    (base64Data: string) => {
+      if (!isConnectedRef.current) {
+        return;
       }
+
+      sendMessage({
+        mime_type: 'audio/pcm',
+        data: base64Data,
+      });
     },
-    [isConnected, sendMessage]
+    [sendMessage]
   );
 
-  // Send screenshots to WebSocket
-  const handleScreenshot = useCallback(
-    async (screenshot: { blob: Blob; timestamp: number }) => {
-      if (!isConnected) return;
+  // Handle speech start (for barge-in)
+  const handleSpeechStart = useCallback(() => {
+    flush();
+  }, [flush]);
 
-      try {
-        const base64Data = await blobToBase64(screenshot.blob);
-        sendMessage({
-          blob: {
-            mime_type: 'image/png',
-            data: base64Data,
-          },
-        });
-      } catch (error) {
-        console.error('Failed to send screenshot:', error);
-      }
-    },
-    [isConnected, sendMessage]
-  );
-
-  // Setup audio recorder with WebSocket callback
-  const { isRecording, startRecording } = useAudioRecorder({
-    onChunk: handleAudioChunk,
-    chunkInterval: 5000,
+  // Setup AudioWorklet recorder
+  const { startRecording, stopRecording } = useAudioWorkletRecorder({
+    onAudioData: handleAudioData,
+    onSpeechStart: handleSpeechStart,
   });
 
-  // Setup screenshot capture with WebSocket callback
-  useCanvasScreenshot(excalidrawAPI, {
-    onScreenshot: handleScreenshot,
-    intervalMs: 10000,
-  });
+  // Initialize audio (player and recorder)
+  const initializeAudio = useCallback(async () => {
+    if (hasInitializedAudioRef.current) return;
 
-  // Start audio recording when connected
-  useEffect(() => {
-    if (isConnected && !isRecording) {
-      startRecording();
+    try {
+      // Initialize audio player
+      await initializePlayer();
+
+      // Get microphone stream
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: false,
+      });
+
+      mediaStreamRef.current = stream;
+
+      // Start AudioWorklet recorder
+      await startRecording(stream);
+
+      hasInitializedAudioRef.current = true;
+    } catch (error) {
+      console.error('Failed to initialize audio:', error);
     }
-  }, [isConnected, isRecording, startRecording]);
+  }, [initializePlayer, startRecording]);
+
+  // Initiate connection when component mounts (only once)
+  useEffect(() => {
+    if (!hasConnectedRef.current) {
+      hasConnectedRef.current = true;
+      connect();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      stopRecording();
+    };
+  }, [stopRecording]);
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden">
@@ -152,7 +153,7 @@ export function SystemDesignInterview() {
 
       <ResizablePanelGroup direction="horizontal" className="flex-1 overflow-hidden">
         <ResizablePanel defaultSize={70} minSize={50} className="overflow-hidden">
-          <ExcalidrawCanvas onExcalidrawAPIInit={setExcalidrawAPI} />
+          <ExcalidrawCanvas />
         </ResizablePanel>
 
         <ResizableHandle className="w-1 bg-slate-200 hover:bg-slate-300" />

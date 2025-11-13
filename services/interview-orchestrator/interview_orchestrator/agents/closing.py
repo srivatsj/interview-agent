@@ -1,11 +1,10 @@
 """Closing agent for wrapping up the interview."""
 
-import os
-
 from google.adk.agents import Agent
 from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.tools import ToolContext
 
+from ..shared.constants import get_gemini_model
 from ..shared.prompts.prompt_loader import load_prompt
 
 
@@ -36,7 +35,7 @@ def get_closing_instruction(ctx: ReadonlyContext) -> str:
 
 closing_agent = Agent(
     name="closing_agent",
-    model=os.getenv("AGENT_MODEL", "gemini-2.0-flash-exp"),
+    model=get_gemini_model(),
     description="Wraps up the interview session",
     instruction=get_closing_instruction,
     tools=[mark_interview_complete],
