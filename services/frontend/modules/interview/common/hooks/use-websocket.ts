@@ -1,15 +1,15 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from "react";
 
 // Message format for sending to backend
 export interface WebSocketMessage {
-  mime_type: 'text/plain' | 'audio/pcm' | 'audio/webm' | 'image/png';
+  mime_type: "text/plain" | "audio/pcm" | "audio/webm" | "image/png";
   data: string; // Text content or base64-encoded data
 }
 
 // Event part structure matching working ADK sample
 export interface EventPart {
-  type: 'text' | 'audio/pcm' | 'function_call' | 'function_response';
-  data: any;
+  type: "text" | "audio/pcm" | "function_call" | "function_response";
+  data: unknown;
 }
 
 // Transcription data structure
@@ -75,13 +75,13 @@ export function useWebSocket({
           const data = JSON.parse(event.data) as StructuredAgentEvent;
           onMessage?.(data);
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', error);
+          console.error("Failed to parse WebSocket message:", error);
         }
       };
 
       ws.onerror = (event) => {
-        console.error('WebSocket error:', event);
-        setConnectionError('WebSocket connection error');
+        console.error("WebSocket error:", event);
+        setConnectionError("WebSocket connection error");
         onError?.(event);
       };
 
@@ -101,10 +101,19 @@ export function useWebSocket({
       };
 
       wsRef.current = ws;
-    } catch (error) {
-      setConnectionError('Failed to create WebSocket connection');
+    } catch {
+      setConnectionError("Failed to create WebSocket connection");
     }
-  }, [url, onMessage, onConnect, onDisconnect, onError, autoConnect, reconnectAttempts]);
+  }, [
+    url,
+    onMessage,
+    onConnect,
+    onDisconnect,
+    onError,
+    autoConnect,
+    reconnectAttempts,
+    connect,
+  ]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -130,7 +139,7 @@ export function useWebSocket({
       wsRef.current.send(json);
       return true;
     } catch (error) {
-      console.error('Failed to send WebSocket message:', error);
+      console.error("Failed to send WebSocket message:", error);
       return false;
     }
   }, []);

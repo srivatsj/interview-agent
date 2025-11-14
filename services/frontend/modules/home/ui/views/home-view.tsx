@@ -4,7 +4,13 @@ import { Brain, Star, ArrowRight, Play } from "lucide-react";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -41,7 +47,6 @@ const companies = [
     completedCount: 8,
     available: true,
     isPremium: false,
-    directLink: "/interview/demo-123/system-design",
   },
   {
     id: "amazon",
@@ -135,18 +140,24 @@ export const HomeView = () => {
                   <>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Avg Score</span>
-                      <span className="font-semibold">{company.avgScore}/10</span>
+                      <span className="font-semibold">
+                        {company.avgScore}/10
+                      </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Completed</span>
-                      <span className="font-semibold">{company.completedCount}</span>
+                      <span className="font-semibold">
+                        {company.completedCount}
+                      </span>
                     </div>
                     <Button
                       className="w-full btn-gradient text-white"
                       size="sm"
                       asChild
                     >
-                      <Link href={company.directLink || `/interview/new?company=${company.id}`}>
+                      <Link
+                        href={`/interview/new?company=${company.id}&type=system_design`}
+                      >
                         <Play className="mr-2 size-4" />
                         Start Interview
                       </Link>
@@ -159,14 +170,21 @@ export const HomeView = () => {
                     size="sm"
                     asChild
                   >
-                    <Link href={`/interview/new?company=${company.id}`}>
+                    <Link
+                      href={`/interview/new?company=${company.id}&type=system_design`}
+                    >
                       <Play className="mr-2 size-4" />
                       Get Started
                     </Link>
                   </Button>
                 )}
                 {!company.available && (
-                  <Button className="w-full" variant="secondary" size="sm" disabled>
+                  <Button
+                    className="w-full"
+                    variant="secondary"
+                    size="sm"
+                    disabled
+                  >
                     Not Available
                   </Button>
                 )}
@@ -190,7 +208,10 @@ export const HomeView = () => {
 
         <div className="space-y-4">
           {recentInterviews.map((interview) => (
-            <Card key={interview.id} className="transition-all hover:shadow-xl border-2 hover:border-primary/20">
+            <Card
+              key={interview.id}
+              className="transition-all hover:shadow-xl border-2 hover:border-primary/20"
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
@@ -204,11 +225,17 @@ export const HomeView = () => {
                     </CardDescription>
                   </div>
                   {interview.status === "completed" ? (
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    <Badge
+                      variant="outline"
+                      className="bg-green-50 text-green-700 border-green-200"
+                    >
                       ✓ Completed
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                    <Badge
+                      variant="outline"
+                      className="bg-blue-50 text-blue-700 border-blue-200"
+                    >
                       In Progress
                     </Badge>
                   )}
@@ -220,7 +247,9 @@ export const HomeView = () => {
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Score</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold">{interview.score}/10</span>
+                        <span className="text-lg font-bold">
+                          {interview.score}/10
+                        </span>
                         {interview.score >= 8 ? (
                           <Star className="size-5 fill-yellow-400 text-yellow-400" />
                         ) : interview.score >= 7 ? (
@@ -250,31 +279,45 @@ export const HomeView = () => {
                       </div>
                     )}
 
-                    {interview.improvements && interview.improvements.length > 0 && (
-                      <div className="space-y-2">
-                        <span className="text-sm font-medium text-orange-700">
-                          Areas to Improve:
-                        </span>
-                        <div className="flex flex-wrap gap-2">
-                          {interview.improvements.map((improvement, idx) => (
-                            <Badge
-                              key={idx}
-                              variant="secondary"
-                              className="bg-orange-50 text-orange-700"
-                            >
-                              {improvement}
-                            </Badge>
-                          ))}
+                    {interview.improvements &&
+                      interview.improvements.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-sm font-medium text-orange-700">
+                            Areas to Improve:
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {interview.improvements.map((improvement, idx) => (
+                              <Badge
+                                key={idx}
+                                variant="secondary"
+                                className="bg-orange-50 text-orange-700"
+                              >
+                                {improvement}
+                              </Badge>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" asChild className="flex-1">
-                        <Link href={`/interviews/${interview.id}`}>View Details</Link>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        asChild
+                        className="flex-1"
+                      >
+                        <Link href={`/interviews/${interview.id}`}>
+                          View Details
+                        </Link>
                       </Button>
-                      <Button size="sm" asChild className="flex-1 btn-gradient text-white">
-                        <Link href={`/interview/new?company=${interview.company.toLowerCase()}`}>
+                      <Button
+                        size="sm"
+                        asChild
+                        className="flex-1 btn-gradient text-white"
+                      >
+                        <Link
+                          href={`/interview/new?company=${interview.company.toLowerCase()}&type=system_design`}
+                        >
                           Practice Again
                           <ArrowRight className="ml-2 size-4" />
                         </Link>
@@ -283,29 +326,38 @@ export const HomeView = () => {
                   </>
                 )}
 
-                {interview.status === "in_progress" && interview.currentPhase && (
-                  <>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-medium">Progress</span>
-                        <span className="text-muted-foreground">
-                          Phase {interview.currentPhase} of {interview.totalPhases}
-                        </span>
+                {interview.status === "in_progress" &&
+                  interview.currentPhase && (
+                    <>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-medium">Progress</span>
+                          <span className="text-muted-foreground">
+                            Phase {interview.currentPhase} of{" "}
+                            {interview.totalPhases}
+                          </span>
+                        </div>
+                        <Progress
+                          value={
+                            (interview.currentPhase / interview.totalPhases) *
+                            100
+                          }
+                          className="h-2"
+                        />
                       </div>
-                      <Progress
-                        value={(interview.currentPhase / interview.totalPhases) * 100}
-                        className="h-2"
-                      />
-                    </div>
 
-                    <Button size="sm" className="w-full btn-gradient text-white" asChild>
-                      <Link href={`/interviews/${interview.id}/resume`}>
-                        Resume Interview
-                        <ArrowRight className="ml-2 size-4" />
-                      </Link>
-                    </Button>
-                  </>
-                )}
+                      <Button
+                        size="sm"
+                        className="w-full btn-gradient text-white"
+                        asChild
+                      >
+                        <Link href={`/interviews/${interview.id}/resume`}>
+                          Resume Interview
+                          <ArrowRight className="ml-2 size-4" />
+                        </Link>
+                      </Button>
+                    </>
+                  )}
               </CardContent>
             </Card>
           ))}
@@ -322,7 +374,7 @@ export const HomeView = () => {
               Start your first mock interview to begin tracking your progress
             </p>
             <Button asChild className="btn-gradient text-white">
-              <Link href="/interview/new">
+              <Link href="/interview/new?company=free&type=system_design">
                 <Play className="mr-2 size-4" />
                 Start Your First Interview
               </Link>

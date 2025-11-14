@@ -255,18 +255,17 @@ async def health():
 
 
 @app.websocket("/ws/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, user_id: int, is_audio: str = "false"):
+async def websocket_endpoint(websocket: WebSocket, user_id: str, is_audio: str = "false"):
     """WebSocket endpoint for bidirectional communication with the agent.
 
     Args:
-        user_id: Unique client identifier
+        user_id: Unique client identifier (UUID string)
         is_audio: "true" for audio mode, "false" for text mode
     """
     await websocket.accept()
     logger.info(f"Client {user_id} connected (audio={is_audio})")
 
-    user_id_str = str(user_id)
-    live_events, live_request_queue = await _start_agent_session(user_id_str, is_audio == "true")
+    live_events, live_request_queue = await _start_agent_session(user_id, is_audio == "true")
     logger.info(f"Agent session started for user {user_id}")
 
     # Run bidirectional messaging concurrently

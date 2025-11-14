@@ -1,19 +1,39 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { InterviewHeader } from '@/modules/interview/common/ui/components/interview-header';
-import { VideoPanel } from '@/modules/interview/common/ui/components/video-panel';
-import { ExcalidrawCanvas } from '../components/excalidraw-canvas';
-import { useTimer } from '@/modules/interview/common/hooks/use-timer';
-import { useWebSocket, type StructuredAgentEvent } from '@/modules/interview/common/hooks/use-websocket';
-import { useAudioWorkletRecorder } from '@/modules/interview/common/hooks/use-audio-worklet-recorder';
-import { useAudioWorkletPlayer } from '@/modules/interview/common/hooks/use-audio-worklet-player';
-import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import { InterviewHeader } from "@/modules/interview/common/ui/components/interview-header";
+import { VideoPanel } from "@/modules/interview/common/ui/components/video-panel";
+import { ExcalidrawCanvas } from "../components/excalidraw-canvas";
+import { useTimer } from "@/modules/interview/common/hooks/use-timer";
+import {
+  useWebSocket,
+  type StructuredAgentEvent,
+} from "@/modules/interview/common/hooks/use-websocket";
+import { useAudioWorkletRecorder } from "@/modules/interview/common/hooks/use-audio-worklet-recorder";
+import { useAudioWorkletPlayer } from "@/modules/interview/common/hooks/use-audio-worklet-player";
+import { useAudioMixer } from "@/modules/interview/common/hooks/use-audio-mixer";
+import { useScreenRecorder } from "@/modules/interview/common/hooks/use-screen-recorder";
+import { useRecordingUpload } from "@/modules/interview/common/hooks/use-recording-upload";
+import { useCanvasScreenshot } from "@/modules/interview/common/hooks/use-canvas-screenshot";
+import { useCanvasStream } from "@/modules/interview/common/hooks/use-canvas-stream";
+import { useRouter, useParams } from "next/navigation";
+import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import { validateInterviewExists } from "@/modules/interview/actions";
 
 export function SystemDesignInterview() {
-  // const [excalidrawAPI, setExcalidrawAPI] = useState<ExcalidrawImperativeAPI | null>(null);
-  const [userId] = useState(() => Date.now());
+  const router = useRouter();
+  const params = useParams();
+  const [excalidrawAPI, setExcalidrawAPI] =
+    useState<ExcalidrawImperativeAPI | null>(null);
+  const [isEndingInterview, setIsEndingInterview] = useState(false);
+
+  // Get interview ID from URL params
+  const interviewId = params.interviewId as string;
   const hasConnectedRef = useRef(false);
   const hasInitializedAudioRef = useRef(false);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -22,12 +42,13 @@ export function SystemDesignInterview() {
   const { formattedTime } = useTimer();
 
   // Initialize AudioWorklet player
-  const { initializePlayer, playAudio, flush } = useAudioWorkletPlayer();
+  const { initializePlayer, playAudio, flush, getAudioStream } =
+    useAudioWorkletPlayer();
 
   // WebSocket connection - CRITICAL: is_audio=true for audio mode
   const websocketUrl = useMemo(
-    () => `ws://localhost:8000/ws/${userId}?is_audio=true`,
-    [userId]
+    () => `ws://localhost:8000/ws/${interviewId}?is_audio=true`,
+    [interviewId],
   );
 
   // Handle incoming structured messages from WebSocket
@@ -46,17 +67,17 @@ export function SystemDesignInterview() {
 
       // Process all parts in the event
       for (const part of event.parts) {
-        if (part.type === 'audio/pcm') {
+        if (part.type === "audio/pcm") {
           // Play PCM audio using AudioWorklet
           playAudio(part.data);
         }
       }
     },
-    [playAudio, flush]
+    [playAudio, flush],
   );
 
   // WebSocket configuration
-  const { isConnected, sendMessage, connect } = useWebSocket({
+  const { isConnected, sendMessage, connect, disconnect } = useWebSocket({
     url: websocketUrl,
     onMessage: handleWebSocketMessage,
     onConnect: () => {
@@ -67,7 +88,7 @@ export function SystemDesignInterview() {
     onDisconnect: () => {
       isConnectedRef.current = false;
     },
-    onError: (error) => console.error('WebSocket error:', error),
+    onError: (error) => console.error("WebSocket error:", error),
     autoConnect: false,
   });
 
@@ -79,11 +100,11 @@ export function SystemDesignInterview() {
       }
 
       sendMessage({
-        mime_type: 'audio/pcm',
+        mime_type: "audio/pcm",
         data: base64Data,
       });
     },
-    [sendMessage]
+    [sendMessage],
   );
 
   // Handle speech start (for barge-in)
@@ -97,12 +118,104 @@ export function SystemDesignInterview() {
     onSpeechStart: handleSpeechStart,
   });
 
+  // Recording hooks
+  const { createMixedStream, cleanup: cleanupMixer } = useAudioMixer();
+  const {
+    startRecording: startScreenRecording,
+    stopRecording: stopScreenRecording,
+    cleanup: cleanupRecorder,
+  } = useScreenRecorder();
+  const { uploadRecording } = useRecordingUpload();
+
+  // Canvas stream for recording
+  const canvasStream = useCanvasStream(excalidrawAPI);
+
+  const mixedStreamRef = useRef<MediaStream | null>(null);
+
+  // Canvas screenshot hook - sends screenshots to orchestrator every 30s
+  const blobToBase64 = useCallback((blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = (reader.result as string).split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }, []);
+
+  const handleCanvasScreenshot = useCallback(
+    async (screenshot: { blob: Blob; timestamp: number }) => {
+      if (!isConnectedRef.current) return;
+
+      try {
+        const base64 = await blobToBase64(screenshot.blob);
+        sendMessage({
+          mime_type: "image/png",
+          data: base64,
+        });
+      } catch (error) {
+        console.error("Failed to send canvas screenshot:", error);
+      }
+    },
+    [blobToBase64, sendMessage],
+  );
+
+  // Initialize canvas screenshot hook (30s interval by default)
+  useCanvasScreenshot(excalidrawAPI, {
+    onScreenshot: handleCanvasScreenshot,
+    intervalMs: 30000, // 30 seconds
+  });
+
+  // Handle ending interview - CRITICAL: Must complete upload before navigation
+  const handleEndInterview = useCallback(async () => {
+    setIsEndingInterview(true);
+
+    try {
+      // 1. Disconnect WebSocket first to stop AI agent
+      disconnect();
+
+      // 2. Stop screen recording and get blob
+      const recordingBlob = await stopScreenRecording();
+
+      if (recordingBlob) {
+        // 3. Upload recording - WAIT for completion
+        await uploadRecording(interviewId, recordingBlob);
+      }
+
+      // 4. Cleanup audio resources
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      stopRecording();
+      cleanupMixer();
+      cleanupRecorder();
+
+      // 5. Navigate to home AFTER upload completes
+      router.push("/");
+    } catch (error) {
+      console.error("Failed to end interview:", error);
+      alert("Failed to save recording. Please try again.");
+      setIsEndingInterview(false);
+    }
+  }, [
+    interviewId,
+    disconnect,
+    stopScreenRecording,
+    uploadRecording,
+    stopRecording,
+    cleanupMixer,
+    cleanupRecorder,
+    router,
+  ]);
+
   // Initialize audio (player and recorder)
   const initializeAudio = useCallback(async () => {
     if (hasInitializedAudioRef.current) return;
 
     try {
-      // Initialize audio player
+      // Initialize audio player first
       await initializePlayer();
 
       // Get microphone stream
@@ -116,34 +229,105 @@ export function SystemDesignInterview() {
       // Start AudioWorklet recorder
       await startRecording(stream);
 
+      // Get AI audio stream from player
+      const agentAudioStream = getAudioStream();
+
+      // Create mixed audio stream for recording (candidate mic + agent audio)
+      const mixedStream = await createMixedStream(
+        stream,
+        agentAudioStream || undefined,
+      );
+      mixedStreamRef.current = mixedStream;
+
+      // Check if canvas stream is ready
+      if (!canvasStream) {
+        // Wait a bit more for canvas
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+
+      // Start recording with mixed audio and canvas stream
+      await startScreenRecording(mixedStream, canvasStream || undefined);
+
+      if (!canvasStream) {
+        console.error("Recording started without canvas video");
+      }
+
       hasInitializedAudioRef.current = true;
     } catch (error) {
-      console.error('Failed to initialize audio:', error);
+      console.error("Failed to initialize audio:", error);
     }
-  }, [initializePlayer, startRecording]);
+  }, [
+    initializePlayer,
+    startRecording,
+    createMixedStream,
+    startScreenRecording,
+    getAudioStream,
+    canvasStream,
+  ]);
 
   // Initiate connection when component mounts (only once)
   useEffect(() => {
-    if (!hasConnectedRef.current) {
-      hasConnectedRef.current = true;
-      connect();
-    }
+    let mounted = true;
+
+    const initializeInterview = async () => {
+      if (!mounted) return;
+
+      if (!interviewId) {
+        console.error("❌ No interview ID provided");
+        router.push("/");
+        return;
+      }
+
+      // Validate interview exists in database
+      const exists = await validateInterviewExists(interviewId);
+      if (!exists) {
+        console.error(`❌ Interview not found: ${interviewId}`);
+        alert("Invalid interview ID. Please start a new interview.");
+        router.push("/");
+        return;
+      }
+
+      if (!hasConnectedRef.current && mounted) {
+        hasConnectedRef.current = true;
+        connect();
+      }
+    };
+
+    initializeInterview();
+
+    return () => {
+      mounted = false;
+      // Prevent duplicate connections on remount
+      if (hasConnectedRef.current) {
+        disconnect();
+        hasConnectedRef.current = false;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Cleanup on unmount
+  // Cleanup on unmount - only cleanup resources, upload handled by End Interview button
   useEffect(() => {
     return () => {
+      // Cleanup resources (no async upload - that's handled by handleEndInterview)
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       }
+
+      // Stop all recording/audio processes
       stopRecording();
+      cleanupMixer();
+      cleanupRecorder();
     };
-  }, [stopRecording]);
+  }, [stopRecording, cleanupMixer, cleanupRecorder]);
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden">
-      <InterviewHeader elapsedTime={formattedTime} />
+      <InterviewHeader
+        elapsedTime={formattedTime}
+        onEndInterview={handleEndInterview}
+        isEndingInterview={isEndingInterview}
+      />
 
       {!isConnected && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-2 rounded-lg shadow-lg z-50">
@@ -151,14 +335,38 @@ export function SystemDesignInterview() {
         </div>
       )}
 
-      <ResizablePanelGroup direction="horizontal" className="flex-1 overflow-hidden">
-        <ResizablePanel defaultSize={70} minSize={50} className="overflow-hidden">
-          <ExcalidrawCanvas />
+      {isEndingInterview && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-blue-100 border border-blue-400 text-blue-700 px-6 py-3 rounded-lg shadow-lg z-50">
+          <div className="flex items-center gap-3">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-700"></div>
+            <div>
+              <div className="font-semibold">Ending Interview...</div>
+              <div className="text-sm">Saving recording, please wait</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ResizablePanelGroup
+        direction="horizontal"
+        className="flex-1 overflow-hidden"
+      >
+        <ResizablePanel
+          defaultSize={70}
+          minSize={50}
+          className="overflow-hidden"
+        >
+          <ExcalidrawCanvas onExcalidrawAPIInit={setExcalidrawAPI} />
         </ResizablePanel>
 
         <ResizableHandle className="w-1 bg-slate-200 hover:bg-slate-300" />
 
-        <ResizablePanel defaultSize={30} minSize={20} maxSize={40} className="overflow-hidden">
+        <ResizablePanel
+          defaultSize={30}
+          minSize={20}
+          maxSize={40}
+          className="overflow-hidden"
+        >
           <VideoPanel />
         </ResizablePanel>
       </ResizablePanelGroup>

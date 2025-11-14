@@ -1,9 +1,7 @@
-'use client';
+"use client";
 
-import { CandidateVideo } from '@/modules/interview/common/ui/components/candidate-video';
-import { AIAvatar } from '@/modules/interview/common/ui/components/ai-avatar';
-import { Button } from '@/components/ui/button';
-import { PhoneOff } from 'lucide-react';
+import { CandidateVideo } from "@/modules/interview/common/ui/components/candidate-video";
+import { AIAvatar } from "@/modules/interview/common/ui/components/ai-avatar";
 
 export function VideoPanel() {
   return (
@@ -12,14 +10,6 @@ export function VideoPanel() {
       <div className="p-4 space-y-4">
         <CandidateVideo />
         <AIAvatar />
-      </div>
-
-      {/* Controls */}
-      <div className="p-4 border-t bg-white">
-        <Button variant="destructive" className="w-full" size="lg">
-          <PhoneOff className="mr-2 h-4 w-4" />
-          End Interview
-        </Button>
       </div>
     </div>
   );

@@ -1,11 +1,14 @@
-import { useRef, useCallback } from 'react';
-import { base64ToArrayBuffer } from '../utils/audio-utils';
+import { useRef, useCallback } from "react";
+import { base64ToArrayBuffer } from "../utils/audio-utils";
 
-const PLAYER_WORKLET_PATH = '/audio-player-worklet.js';
+const PLAYER_WORKLET_PATH = "/audio-player-worklet.js";
 
 export function useAudioWorkletPlayer() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
+  const streamDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(
+    null,
+  );
 
   const initializePlayer = useCallback(async () => {
     try {
@@ -17,28 +20,37 @@ export function useAudioWorkletPlayer() {
       }
       const audioCtx = audioContextRef.current;
 
-      if (audioCtx.state === 'suspended') {
+      if (audioCtx.state === "suspended") {
         await audioCtx.resume();
       }
 
       // Load the AudioWorklet module
       try {
         await audioCtx.audioWorklet.addModule(PLAYER_WORKLET_PATH);
-        const playerNode = new AudioWorkletNode(audioCtx, 'audio-player-processor');
-        playerNode.connect(audioCtx.destination);
+        const playerNode = new AudioWorkletNode(
+          audioCtx,
+          "audio-player-processor",
+        );
+
+        // Connect to both speakers AND stream destination for recording
+        playerNode.connect(audioCtx.destination); // For playback
+
+        // Create stream destination for recording AI audio
+        streamDestinationRef.current = audioCtx.createMediaStreamDestination();
+        playerNode.connect(streamDestinationRef.current); // For recording
+
         workletNodeRef.current = playerNode;
-        console.log('Audio player worklet setup complete.');
       } catch (error) {
-        console.error('Error setting up audio player worklet:', error);
+        console.error("Error setting up audio player worklet:", error);
       }
     } catch (error) {
-      console.error('Failed to initialize audio player:', error);
+      console.error("Failed to initialize audio player:", error);
     }
   }, []);
 
   const playAudio = useCallback((base64Data: string) => {
     if (!workletNodeRef.current) {
-      console.warn('Audio player not initialized');
+      console.warn("Audio player not initialized");
       return;
     }
 
@@ -48,20 +60,17 @@ export function useAudioWorkletPlayer() {
 
       // Send audio data to worklet
       workletNodeRef.current.port.postMessage(
-        { type: 'audio_data', buffer: int16Array.buffer },
-        [int16Array.buffer]
+        { type: "audio_data", buffer: int16Array.buffer },
+        [int16Array.buffer],
       );
-
-      console.log('🔊 Sent audio to player:', int16Array.length, 'samples');
     } catch (error) {
-      console.error('Failed to play audio:', error);
+      console.error("Failed to play audio:", error);
     }
   }, []);
 
   const flush = useCallback(() => {
     if (workletNodeRef.current) {
-      workletNodeRef.current.port.postMessage({ type: 'flush' });
-      console.log('Audio player flushed (barge-in)');
+      workletNodeRef.current.port.postMessage({ type: "flush" });
     }
   }, []);
 
@@ -76,7 +85,11 @@ export function useAudioWorkletPlayer() {
       audioContextRef.current = null;
     }
 
-    console.log('Audio player stopped.');
+    streamDestinationRef.current = null;
+  }, []);
+
+  const getAudioStream = useCallback((): MediaStream | null => {
+    return streamDestinationRef.current?.stream || null;
   }, []);
 
   return {
@@ -84,5 +97,6 @@ export function useAudioWorkletPlayer() {
     playAudio,
     flush,
     stopPlayer,
+    getAudioStream,
   };
 }
