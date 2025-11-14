@@ -28,17 +28,18 @@ load_dotenv()
 
 # Configure logging - suppress verbose audio chunk logs
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
 # Suppress noisy loggers completely
-logging.getLogger('google_adk.google.adk.flows.llm_flows.audio_cache_manager').setLevel(logging.ERROR)
-logging.getLogger('google_adk.google.adk.models.gemini_llm_connection').setLevel(logging.ERROR)
-logging.getLogger('google_adk.google.adk.flows.llm_flows.base_llm_flow').setLevel(logging.ERROR)
-logging.getLogger('websockets.client').setLevel(logging.ERROR)
-logging.getLogger('websockets.protocol').setLevel(logging.ERROR)
-logging.getLogger('websockets.server').setLevel(logging.ERROR)
+logging.getLogger("google_adk.google.adk.flows.llm_flows.audio_cache_manager").setLevel(
+    logging.ERROR
+)
+logging.getLogger("google_adk.google.adk.models.gemini_llm_connection").setLevel(logging.ERROR)
+logging.getLogger("google_adk.google.adk.flows.llm_flows.base_llm_flow").setLevel(logging.ERROR)
+logging.getLogger("websockets.client").setLevel(logging.ERROR)
+logging.getLogger("websockets.protocol").setLevel(logging.ERROR)
+logging.getLogger("websockets.server").setLevel(logging.ERROR)
 
 logger = logging.getLogger(__name__)
 
@@ -50,10 +51,7 @@ async def _start_agent_session(user_id: str, is_audio: bool = False):
     """Start an agent session."""
 
     # Create a Runner per session
-    runner = InMemoryRunner(
-        app_name=APP_NAME,
-        agent=root_agent
-    )
+    runner = InMemoryRunner(app_name=APP_NAME, agent=root_agent)
 
     # Create a Session
     session = await runner.session_service.create_session(
@@ -72,9 +70,9 @@ async def _start_agent_session(user_id: str, is_audio: bool = False):
     # Minimal RunConfig - speech_config is in agent models
     run_config = RunConfig(
         streaming_mode="bidi",
-        response_modalities = ["AUDIO"],
-        output_audio_transcription = {},
-        input_audio_transcription = {},
+        response_modalities=["AUDIO"],
+        output_audio_transcription={},
+        input_audio_transcription={},
     )
 
     # Start agent session
@@ -107,7 +105,7 @@ async def _agent_to_client_messaging(websocket: WebSocket, live_events):
                 "interrupted": event.interrupted or False,
                 "parts": [],
                 "input_transcription": None,
-                "output_transcription": None
+                "output_transcription": None,
             }
 
             # If no content, send only turn events if present
@@ -129,7 +127,7 @@ async def _agent_to_client_messaging(websocket: WebSocket, live_events):
                 if transcription_text:
                     message_to_send["input_transcription"] = {
                         "text": transcription_text,
-                        "is_final": not event.partial
+                        "is_final": not event.partial,
                     }
                     if not event.partial:
                         logger.info(f"User: {transcription_text}")
@@ -140,7 +138,7 @@ async def _agent_to_client_messaging(websocket: WebSocket, live_events):
                 if transcription_text:
                     message_to_send["output_transcription"] = {
                         "text": transcription_text,
-                        "is_final": not event.partial
+                        "is_final": not event.partial,
                     }
                     message_to_send["parts"].append({"type": "text", "data": transcription_text})
                     if not event.partial:
@@ -152,39 +150,43 @@ async def _agent_to_client_messaging(websocket: WebSocket, live_events):
                     if part.inline_data and part.inline_data.mime_type.startswith("audio/pcm"):
                         audio_data = part.inline_data.data
                         encoded_audio = base64.b64encode(audio_data).decode("ascii")
-                        message_to_send["parts"].append({
-                            "type": "audio/pcm",
-                            "data": encoded_audio
-                        })
+                        message_to_send["parts"].append(
+                            {"type": "audio/pcm", "data": encoded_audio}
+                        )
 
                     # Handle function calls
                     elif part.function_call:
-                        message_to_send["parts"].append({
-                            "type": "function_call",
-                            "data": {
-                                "name": part.function_call.name,
-                                "args": part.function_call.args or {}
+                        message_to_send["parts"].append(
+                            {
+                                "type": "function_call",
+                                "data": {
+                                    "name": part.function_call.name,
+                                    "args": part.function_call.args or {},
+                                },
                             }
-                        })
+                        )
                         logger.info(f"{event.author} -> {part.function_call.name}()")
 
                     # Handle function responses
                     elif part.function_response:
-                        message_to_send["parts"].append({
-                            "type": "function_response",
-                            "data": {
-                                "name": part.function_response.name,
-                                "response": part.function_response.response or {}
+                        message_to_send["parts"].append(
+                            {
+                                "type": "function_response",
+                                "data": {
+                                    "name": part.function_response.name,
+                                    "response": part.function_response.response or {},
+                                },
                             }
-                        })
+                        )
 
             # Send message if it has content or status changes
-            if (message_to_send["parts"] or
-                message_to_send["turn_complete"] or
-                message_to_send["interrupted"] or
-                message_to_send["input_transcription"] or
-                message_to_send["output_transcription"]):
-
+            if (
+                message_to_send["parts"]
+                or message_to_send["turn_complete"]
+                or message_to_send["interrupted"]
+                or message_to_send["input_transcription"]
+                or message_to_send["output_transcription"]
+            ):
                 json_message = json.dumps(message_to_send)
                 await websocket.send_text(json_message)
 
@@ -248,10 +250,7 @@ async def root():
 @app.get("/health")
 async def health():
     """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "agent": root_agent.name
-    }
+    return {"status": "healthy", "agent": root_agent.name}
 
 
 @app.websocket("/ws/{user_id}")

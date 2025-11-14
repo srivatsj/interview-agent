@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Ignore shadcn components:
+    "components/ui/**",
+    // Ignore audio worklets:
+    "public/**/*.js",
   ]),
 ]);
 

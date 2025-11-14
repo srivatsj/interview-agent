@@ -13,10 +13,7 @@ def get_gemini_model() -> Gemini:
         Gemini model with speech configuration from environment.
     """
     return Gemini(
-        model=os.getenv(
-            "AGENT_MODEL",
-            "gemini-2.5-flash-native-audio-preview-09-2025"
-        ),
+        model=os.getenv("AGENT_MODEL", "gemini-2.5-flash-native-audio-preview-09-2025"),
         speech_config=types.SpeechConfig(
             language_code=os.getenv("AGENT_LANGUAGE", "en-US"),
             voice_config=types.VoiceConfig(

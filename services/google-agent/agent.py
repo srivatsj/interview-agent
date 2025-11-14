@@ -5,6 +5,7 @@ This agent has 2 skills:
 1. Analyze Scale Requirements - Calculate scale for billions of users
 2. Design Distributed Systems - Suggest distributed architecture patterns
 """
+
 import os
 
 from a2a.types import AgentCard, AgentSkill

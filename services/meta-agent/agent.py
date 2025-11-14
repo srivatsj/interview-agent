@@ -5,6 +5,7 @@ This agent has 2 skills:
 1. Design Social Graph - Architecture for social connections and feeds
 2. Optimize Performance - Performance optimization strategies
 """
+
 import os
 
 from a2a.types import AgentCard, AgentSkill

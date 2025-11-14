@@ -57,7 +57,7 @@ def get_routing_instruction(ctx: ReadonlyContext) -> str:
     """Get routing instruction with available options."""
     return load_prompt(
         "routing_agent.txt",
-        available_options="Google, Meta", #AgentProviderRegistry.get_formatted_options(),
+        available_options="Google, Meta",  # AgentProviderRegistry.get_formatted_options(),
     )
 
 

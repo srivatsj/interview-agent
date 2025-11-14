@@ -50,7 +50,8 @@ export function useWebSocket({
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const reconnectAttemptsRef = useRef(0);
+  const connectRef = useRef<(() => void) | null>(null);
 
   const maxReconnectAttempts = 5;
   const reconnectDelay = 2000;
@@ -66,7 +67,7 @@ export function useWebSocket({
       ws.onopen = () => {
         setIsConnected(true);
         setConnectionError(null);
-        setReconnectAttempts(0);
+        reconnectAttemptsRef.current = 0;
         onConnect?.();
       };
 
@@ -91,11 +92,11 @@ export function useWebSocket({
         onDisconnect?.();
 
         // Auto-reconnect with exponential backoff
-        if (autoConnect && reconnectAttempts < maxReconnectAttempts) {
-          const delay = reconnectDelay * Math.pow(2, reconnectAttempts);
+        if (autoConnect && reconnectAttemptsRef.current < maxReconnectAttempts) {
+          const delay = reconnectDelay * Math.pow(2, reconnectAttemptsRef.current);
+          reconnectAttemptsRef.current += 1;
           reconnectTimeoutRef.current = setTimeout(() => {
-            setReconnectAttempts((prev) => prev + 1);
-            connect();
+            connectRef.current?.();
           }, delay);
         }
       };
@@ -104,7 +105,7 @@ export function useWebSocket({
     } catch {
       setConnectionError("Failed to create WebSocket connection");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [
     url,
     onMessage,
@@ -112,8 +113,12 @@ export function useWebSocket({
     onDisconnect,
     onError,
     autoConnect,
-    reconnectAttempts,
   ]);
+
+  // Store the latest connect function in a ref
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -147,7 +152,11 @@ export function useWebSocket({
   // Auto-connect on mount
   useEffect(() => {
     if (autoConnect) {
-      connect();
+      // Defer connection to avoid synchronous setState in effect
+      const timer = setTimeout(() => {
+        connect();
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
     // Don't disconnect on cleanup to avoid issues with React Strict Mode remounts
@@ -163,6 +172,5 @@ export function useWebSocket({
     connect,
     disconnect,
     sendMessage,
-    reconnectAttempts,
   };
 }
