@@ -104,6 +104,7 @@ export function useWebSocket({
     } catch {
       setConnectionError("Failed to create WebSocket connection");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     url,
     onMessage,
@@ -112,7 +113,6 @@ export function useWebSocket({
     onError,
     autoConnect,
     reconnectAttempts,
-    connect,
   ]);
 
   const disconnect = useCallback(() => {

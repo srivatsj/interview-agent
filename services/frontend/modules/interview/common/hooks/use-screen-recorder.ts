@@ -14,31 +14,53 @@ export function useScreenRecorder(options?: ScreenRecorderOptions) {
   const screenStreamRef = useRef<MediaStream | null>(null);
 
   /**
-   * Start recording with canvas stream and audio
+   * Start recording with canvas stream, webcam, and audio
    * @param audioStream - Mixed audio stream (candidate + agent)
-   * @param canvasStream - Canvas video stream (optional, can be added later)
+   * @param canvasStream - Canvas video stream (Excalidraw)
+   * @param webcamStream - Webcam video stream (candidate face)
    * @returns Promise that resolves when recording starts
    */
   const startRecording = useCallback(
-    async (audioStream?: MediaStream, canvasStream?: MediaStream) => {
+    async (
+      audioStream?: MediaStream,
+      canvasStream?: MediaStream,
+      webcamStream?: MediaStream,
+    ) => {
       try {
+        console.log("🎥 Starting recording with:");
+        console.log("  - Audio tracks:", audioStream?.getAudioTracks().length || 0);
+        console.log("  - Canvas video tracks:", canvasStream?.getVideoTracks().length || 0);
+        console.log("  - Webcam video tracks:", webcamStream?.getVideoTracks().length || 0);
+
         // Collect all video and audio tracks
         const tracks: MediaStreamTrack[] = [];
 
         // Add canvas video if provided
         if (canvasStream) {
-          tracks.push(...canvasStream.getVideoTracks());
+          const canvasTracks = canvasStream.getVideoTracks();
+          tracks.push(...canvasTracks);
+          console.log("  ✓ Canvas video added");
+        }
+
+        // Add webcam video if provided
+        if (webcamStream) {
+          const webcamTracks = webcamStream.getVideoTracks();
+          tracks.push(...webcamTracks);
+          console.log("  ✓ Webcam video added");
         }
 
         // Add mixed audio if provided
         if (audioStream) {
-          tracks.push(...audioStream.getAudioTracks());
+          const audioTracks = audioStream.getAudioTracks();
+          tracks.push(...audioTracks);
+          console.log("  ✓ Mixed audio added");
         }
 
         if (tracks.length === 0) {
           throw new Error("No tracks available for recording");
         }
 
+        console.log(`📹 Total tracks for recording: ${tracks.length}`);
         const combinedStream = new MediaStream(tracks);
 
         // Create MediaRecorder

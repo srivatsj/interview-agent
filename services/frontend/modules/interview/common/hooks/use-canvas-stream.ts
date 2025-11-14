@@ -34,7 +34,7 @@ export function useCanvasStream(excalidrawAPI: ExcalidrawImperativeAPI | null) {
             retryCountRef.current++;
             setTimeout(attemptCapture, 1000);
           } else {
-            console.error("Canvas element not found after 5 attempts");
+            console.error("❌ Canvas element not found after 5 attempts");
           }
           return;
         }
@@ -43,9 +43,15 @@ export function useCanvasStream(excalidrawAPI: ExcalidrawImperativeAPI | null) {
         const stream = canvas.captureStream(30);
 
         if (!stream || stream.getVideoTracks().length === 0) {
-          console.error("Canvas stream has no video tracks");
+          console.error("❌ Canvas stream has no video tracks");
           return;
         }
+
+        const videoTrack = stream.getVideoTracks()[0];
+        const settings = videoTrack.getSettings();
+        console.log(
+          `🎨 Canvas stream ready: ${settings.width}x${settings.height} @ ${settings.frameRate}fps`,
+        );
 
         setCanvasStream(stream);
       } catch (error) {

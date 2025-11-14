@@ -21,6 +21,7 @@ import { useScreenRecorder } from "@/modules/interview/common/hooks/use-screen-r
 import { useRecordingUpload } from "@/modules/interview/common/hooks/use-recording-upload";
 import { useCanvasScreenshot } from "@/modules/interview/common/hooks/use-canvas-screenshot";
 import { useCanvasStream } from "@/modules/interview/common/hooks/use-canvas-stream";
+import { useCompositeVideo } from "@/modules/interview/common/hooks/use-composite-video";
 import { useRouter, useParams } from "next/navigation";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { validateInterviewExists } from "@/modules/interview/actions";
@@ -31,6 +32,7 @@ export function SystemDesignInterview() {
   const [excalidrawAPI, setExcalidrawAPI] =
     useState<ExcalidrawImperativeAPI | null>(null);
   const [isEndingInterview, setIsEndingInterview] = useState(false);
+  const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
 
   // Get interview ID from URL params
   const interviewId = params.interviewId as string;
@@ -67,7 +69,7 @@ export function SystemDesignInterview() {
 
       // Process all parts in the event
       for (const part of event.parts) {
-        if (part.type === "audio/pcm") {
+        if (part.type === "audio/pcm" && typeof part.data === "string") {
           // Play PCM audio using AudioWorklet
           playAudio(part.data);
         }
@@ -121,6 +123,7 @@ export function SystemDesignInterview() {
   // Recording hooks
   const { createMixedStream, cleanup: cleanupMixer } = useAudioMixer();
   const {
+    isRecording,
     startRecording: startScreenRecording,
     stopRecording: stopScreenRecording,
     cleanup: cleanupRecorder,
@@ -129,6 +132,13 @@ export function SystemDesignInterview() {
 
   // Canvas stream for recording
   const canvasStream = useCanvasStream(excalidrawAPI);
+
+  // Composite video stream (canvas + webcam picture-in-picture)
+  const compositeVideoStream = useCompositeVideo({
+    canvasStream,
+    webcamStream,
+    layout: "picture-in-picture",
+  });
 
   const mixedStreamRef = useRef<MediaStream | null>(null);
 
@@ -184,9 +194,12 @@ export function SystemDesignInterview() {
         await uploadRecording(interviewId, recordingBlob);
       }
 
-      // 4. Cleanup audio resources
+      // 4. Cleanup audio/video resources
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      if (webcamStream) {
+        webcamStream.getTracks().forEach((track) => track.stop());
       }
       stopRecording();
       cleanupMixer();
@@ -208,6 +221,7 @@ export function SystemDesignInterview() {
     cleanupMixer,
     cleanupRecorder,
     router,
+    webcamStream,
   ]);
 
   // Initialize audio (player and recorder)
@@ -218,15 +232,20 @@ export function SystemDesignInterview() {
       // Initialize audio player first
       await initializePlayer();
 
-      // Get microphone stream
+      // Get microphone AND webcam stream (both audio and video)
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
-        video: false,
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: "user",
+        },
       });
 
       mediaStreamRef.current = stream;
+      setWebcamStream(stream); // Set webcam stream for composite video
 
-      // Start AudioWorklet recorder
+      // Start AudioWorklet recorder (uses audio tracks only)
       await startRecording(stream);
 
       // Get AI audio stream from player
@@ -239,19 +258,6 @@ export function SystemDesignInterview() {
       );
       mixedStreamRef.current = mixedStream;
 
-      // Check if canvas stream is ready
-      if (!canvasStream) {
-        // Wait a bit more for canvas
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-      }
-
-      // Start recording with mixed audio and canvas stream
-      await startScreenRecording(mixedStream, canvasStream || undefined);
-
-      if (!canvasStream) {
-        console.error("Recording started without canvas video");
-      }
-
       hasInitializedAudioRef.current = true;
     } catch (error) {
       console.error("Failed to initialize audio:", error);
@@ -260,10 +266,35 @@ export function SystemDesignInterview() {
     initializePlayer,
     startRecording,
     createMixedStream,
-    startScreenRecording,
     getAudioStream,
-    canvasStream,
   ]);
+
+  // Start recording once composite video is ready
+  useEffect(() => {
+    if (!hasInitializedAudioRef.current) return;
+    if (isRecording) return;
+    if (!compositeVideoStream) return;
+    if (!mixedStreamRef.current) {
+      console.error("⚠️ Mixed audio stream not ready");
+      return;
+    }
+
+    console.log("🎬 Starting screen recording...");
+
+    const startRecordingAsync = async () => {
+      try {
+        await startScreenRecording(
+          mixedStreamRef.current || undefined,
+          compositeVideoStream,
+        );
+        console.log("✅ Recording started successfully");
+      } catch (error) {
+        console.error("❌ Failed to start recording:", error);
+      }
+    };
+
+    startRecordingAsync();
+  }, [compositeVideoStream, isRecording, startScreenRecording]);
 
   // Initiate connection when component mounts (only once)
   useEffect(() => {
@@ -309,7 +340,7 @@ export function SystemDesignInterview() {
   // Cleanup on unmount - only cleanup resources, upload handled by End Interview button
   useEffect(() => {
     return () => {
-      // Cleanup resources (no async upload - that's handled by handleEndInterview)
+      // Cleanup resources only on unmount (no async upload - that's handled by handleEndInterview)
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       }
@@ -319,7 +350,8 @@ export function SystemDesignInterview() {
       cleanupMixer();
       cleanupRecorder();
     };
-  }, [stopRecording, cleanupMixer, cleanupRecorder]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run on mount/unmount
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden">
