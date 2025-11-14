@@ -26,6 +26,7 @@ samples/
 
 # Claude Code
 .claude/settings.local.json
+.claude/skills/*/docs/
 
 # Test services
 services/orchestrator2/
