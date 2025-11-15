@@ -25,6 +25,7 @@ import { useCompositeVideo } from "@/modules/interview/common/hooks/use-composit
 import { useRouter, useParams } from "next/navigation";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { validateInterviewExists } from "@/modules/interview/actions";
+import { authClient } from "@/lib/auth-client";
 
 export function SystemDesignInterview() {
   const router = useRouter();
@@ -41,6 +42,10 @@ export function SystemDesignInterview() {
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const isConnectedRef = useRef(false);
 
+  // Get authenticated user for session persistence
+  const { data: session } = authClient.useSession();
+  const userId = session?.user?.id || interviewId; // Fallback to interviewId if no auth
+
   const { formattedTime } = useTimer();
 
   // Initialize AudioWorklet player
@@ -48,9 +53,10 @@ export function SystemDesignInterview() {
     useAudioWorkletPlayer();
 
   // WebSocket connection - CRITICAL: is_audio=true for audio mode
+  // Pass both user_id and interview_id for session management
   const websocketUrl = useMemo(
-    () => `ws://localhost:8000/ws/${interviewId}?is_audio=true`,
-    [interviewId],
+    () => `ws://localhost:8000/ws/${userId}?interview_id=${interviewId}&is_audio=true`,
+    [userId, interviewId],
   );
 
   // Handle incoming structured messages from WebSocket
@@ -183,7 +189,8 @@ export function SystemDesignInterview() {
     setIsEndingInterview(true);
 
     try {
-      // 1. Disconnect WebSocket first to stop AI agent
+      // 1. Disconnect WebSocket - backend auto-syncs to database on disconnect
+      console.log("🔌 Disconnecting WebSocket (backend will auto-sync session to DB)...");
       disconnect();
 
       // 2. Stop screen recording and get blob
@@ -296,7 +303,7 @@ export function SystemDesignInterview() {
     startRecordingAsync();
   }, [compositeVideoStream, isRecording, startScreenRecording]);
 
-  // Initiate connection when component mounts (only once)
+  // Initiate connection when component mounts - EXACTLY like original pattern
   useEffect(() => {
     let mounted = true;
 
@@ -335,23 +342,7 @@ export function SystemDesignInterview() {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Cleanup on unmount - only cleanup resources, upload handled by End Interview button
-  useEffect(() => {
-    return () => {
-      // Cleanup resources only on unmount (no async upload - that's handled by handleEndInterview)
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
-
-      // Stop all recording/audio processes
-      stopRecording();
-      cleanupMixer();
-      cleanupRecorder();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps - only run on mount/unmount
+  }, []); // ✅ EMPTY DEPS - exactly like original!
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden">

@@ -32,3 +32,6 @@ samples/
 services/orchestrator2/
 services/test_remote/
 services/test_remote_uber/
+
+# Temporary files and test pages
+tmp/

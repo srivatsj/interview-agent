@@ -5,11 +5,11 @@ description = "Interview orchestrator service"
 requires-python = ">=3.10"
 dependencies = [
     "google-adk==1.16.0",
-    "a2a-sdk>=0.3.0",
-    "httpx>=0.28.1",
+    "a2a-sdk>=0.3.0",  # Required for RemoteA2aAgent (remote interview agents via A2A)
     "python-dotenv>=1.0.1",
-    "click>=8.1.0",
     "uvicorn>=0.30.0",
+    "sqlalchemy>=2.0.0",  # Required by google-adk's DatabaseSessionService
+    "psycopg2-binary>=2.9.0",  # PostgreSQL adapter for DatabaseSessionService
 ]
 
 [project.optional-dependencies]
@@ -74,8 +74,3 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 # Allow function-level imports only in server.py (uses inline # noqa for specific test cases)
 [tool.ruff.lint.per-file-ignores]
 "interview_orchestrator/server.py" = ["PLC0415"]  # Needed to avoid import errors
-
-[dependency-groups]
-dev = [
-    "ruff>=0.14.4",
-]

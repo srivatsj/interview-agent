@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { interviews } from "@/db/schema/interviews";
+import { interviews, canvasState } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 export interface CreateInterviewInput {
@@ -69,5 +69,45 @@ export async function validateInterviewExists(
   } catch (error) {
     console.error("Failed to validate interview:", error);
     return false;
+  }
+}
+
+export interface UpdateInterviewInput {
+  interviewId: string;
+  status?: string;
+  videoUrl?: string;
+  completedAt?: Date;
+  durationSeconds?: number;
+  canvasState?: {
+    elements: any[];
+    appState?: any;
+  };
+}
+
+export async function updateInterview(params: UpdateInterviewInput) {
+  const { interviewId, canvasState: canvas, ...updates } = params;
+
+  try {
+    // Update interview record
+    if (Object.keys(updates).length > 0) {
+      await db
+        .update(interviews)
+        .set(updates)
+        .where(eq(interviews.id, interviewId));
+    }
+
+    // Store canvas state if provided
+    if (canvas && (canvas.elements || canvas.appState)) {
+      await db.insert(canvasState).values({
+        interviewId,
+        elements: canvas.elements || [],
+        appState: canvas.appState || {},
+      });
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to update interview:", error);
+    throw new Error("Failed to update interview");
   }
 }

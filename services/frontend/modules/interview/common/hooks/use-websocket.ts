@@ -61,6 +61,12 @@ export function useWebSocket({
       return;
     }
 
+    // Don't try to connect with empty/invalid URL
+    if (!url || url === "") {
+      console.warn("⚠️ Cannot connect: URL is empty");
+      return;
+    }
+
     try {
       const ws = new WebSocket(url);
 
