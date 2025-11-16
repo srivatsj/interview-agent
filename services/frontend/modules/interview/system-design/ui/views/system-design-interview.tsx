@@ -24,7 +24,7 @@ import { useCanvasStream } from "@/modules/interview/common/hooks/use-canvas-str
 import { useCompositeVideo } from "@/modules/interview/common/hooks/use-composite-video";
 import { useRouter, useParams } from "next/navigation";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-import { validateInterviewExists } from "@/modules/interview/actions";
+import { validateInterviewExists, updateInterview } from "@/modules/interview/actions";
 import { authClient } from "@/lib/auth-client";
 
 export function SystemDesignInterview() {
@@ -201,7 +201,22 @@ export function SystemDesignInterview() {
         await uploadRecording(interviewId, recordingBlob);
       }
 
-      // 4. Cleanup audio/video resources
+      // 4. Save canvas state if available
+      if (excalidrawAPI) {
+        try {
+          const elements = [...excalidrawAPI.getSceneElements()];
+          const appState = excalidrawAPI.getAppState();
+          await updateInterview({
+            interviewId,
+            canvasState: { elements, appState },
+          });
+        } catch (error) {
+          console.error("Failed to save canvas state:", error);
+          // Don't block navigation on canvas save failure
+        }
+      }
+
+      // 5. Cleanup audio/video resources
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       }
@@ -212,7 +227,7 @@ export function SystemDesignInterview() {
       cleanupMixer();
       cleanupRecorder();
 
-      // 5. Navigate to home AFTER upload completes
+      // 6. Navigate to home AFTER upload completes
       router.push("/");
     } catch (error) {
       console.error("Failed to end interview:", error);
@@ -224,6 +239,7 @@ export function SystemDesignInterview() {
     disconnect,
     stopScreenRecording,
     uploadRecording,
+    excalidrawAPI,
     stopRecording,
     cleanupMixer,
     cleanupRecorder,

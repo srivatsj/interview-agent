@@ -231,6 +231,8 @@ async def sync_session_to_database(user_id: str, interview_id: str) -> dict:
         logger.info(f"  Filtered to {len(filtered_events)} text transcription events")
 
         # Create DatabaseSessionService
+        # Note: ADK tables (adk_sessions, adk_events) will be created in public schema
+        # because Neon pooler doesn't support search_path in connection options
         db_service = DatabaseSessionService(db_url=DATABASE_URL)
 
         # Create new session in database with same data

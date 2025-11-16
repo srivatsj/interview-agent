@@ -1,6 +1,7 @@
-import { pgTable, uuid, text, timestamp, integer } from "drizzle-orm/pg-core";
+import { uuid, text, timestamp, integer } from "drizzle-orm/pg-core";
+import { product } from "./namespaces";
 
-export const interviews = pgTable("interviews", {
+export const interviews = product.table("interviews", {
   id: uuid("id").defaultRandom().primaryKey(),
 
   // metadata

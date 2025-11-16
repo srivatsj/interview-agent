@@ -1,7 +1,8 @@
-import { pgTable, uuid, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { uuid, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { product } from "./namespaces";
 import { interviews } from "./interviews";
 
-export const canvasState = pgTable("canvas_state", {
+export const canvasState = product.table("canvas_state", {
   id: uuid("id").defaultRandom().primaryKey(),
   interviewId: uuid("interview_id")
     .notNull()
