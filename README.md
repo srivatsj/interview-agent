@@ -1,311 +1,143 @@
-# Interview Agent Platform
+# Interview Agent
 
-> **AI-Powered Technical Interview Platform** with real-time audio/video, canvas collaboration, and multi-agent orchestration using Google ADK.
+> AI-powered technical interview platform with real-time audio, collaborative canvas, and multi-agent orchestration.
 
-An intelligent interview platform that provides realistic practice for system design and coding interviews with AI agents specialized for different companies (Google, Meta, etc.).
+Practice system design interviews with AI agents that provide company-specific feedback using Google ADK and Gemini 2.5 Flash Native Audio.
 
 ---
 
-## 🏗️ High-Level Architecture
+## 🏗️ Architecture
+
+### System Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    FRONTEND (Next.js 16)                        │
-│                     http://localhost:3000                        │
-│                                                                  │
-│  ┌────────────────┐  ┌──────────────┐  ┌──────────────────┐   │
-│  │  Interview UI  │  │   Excalidraw │  │  Video/Audio      │   │
-│  │  (React 19)    │  │   Canvas     │  │  (WebRTC)         │   │
-│  └────────┬───────┘  └──────┬───────┘  └─────────┬────────┘   │
-│           │                  │                     │             │
-│           └──────────────────┴─────────────────────┘             │
-│                              │                                   │
-└──────────────────────────────┼───────────────────────────────────┘
-                               │
-                               │ WebSocket (Audio PCM + Canvas Screenshots)
-                               │ ws://localhost:8000/ws/{interviewId}
-                               ▼
+│                  FRONTEND (Next.js 16 + React 19)              │
+│                      http://localhost:3000                      │
+│                                                                 │
+│  ┌────────────┐  ┌──────────┐  ┌─────────┐  ┌──────────────┐ │
+│  │ Excalidraw │  │  Webcam  │  │  Audio  │  │  Recording   │ │
+│  │   Canvas   │  │  Stream  │  │ Worklet │  │ (WebM video) │ │
+│  └─────┬──────┘  └────┬─────┘  └────┬────┘  └──────┬───────┘ │
+│        │              │               │              │         │
+│        └──────────────┴───────────────┴──────────────┘         │
+│                       │                                         │
+└───────────────────────┼─────────────────────────────────────────┘
+                        │
+                        │ WebSocket (Audio PCM + Canvas PNG)
+                        │ ws://localhost:8000/ws/{userId}
+                        ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│           INTERVIEW ORCHESTRATOR (Python + Google ADK)          │
-│                     http://localhost:8000                        │
-│                                                                  │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │              Root Coordinator Agent                       │  │
-│  │         (Manages Multi-Phase Interview Flow)              │  │
-│  └──────────────────────┬───────────────────────────────────┘  │
-│                         │                                       │
-│         ┌───────────────┼───────────────┐                      │
-│         ▼               ▼               ▼                      │
-│  ┌─────────────┐ ┌────────────┐ ┌────────────┐               │
-│  │   Routing   │ │   Intro    │ │  Closing   │               │
-│  │   Agent     │ │   Agent    │ │   Agent    │               │
-│  └─────────────┘ └────────────┘ └────────────┘               │
-│                         │                                       │
-│              ┌──────────┴──────────┐                           │
-│              ▼                     ▼                           │
-│      ┌────────────┐         ┌──────────────┐                  │
-│      │   Coding   │         │ System Design│                  │
-│      │   Agent    │         │   Agent      │                  │
-│      └────────────┘         └──────┬───────┘                  │
-│                                    │                           │
-└────────────────────────────────────┼───────────────────────────┘
-                                     │
-                                     │ A2A Protocol (HTTP/JSON)
-                                     │ Remote Agent Skill Consumption
-                                     ▼
-          ┌─────────────────────────────────────────────┐
-          │         REMOTE A2A AGENTS                   │
-          │                                             │
-          │  ┌────────────────┐  ┌────────────────┐   │
-          │  │ Google Agent   │  │  Meta Agent    │   │
-          │  │ (port 8003)    │  │  (port 8004)   │   │
-          │  │                │  │                │   │
-          │  │ Skills:        │  │ Skills:        │   │
-          │  │ - Scale Calc   │  │ - Infra Design │   │
-          │  │ - Distributed  │  │ - News Feed    │   │
-          │  └────────────────┘  └────────────────┘   │
-          └─────────────────────────────────────────────┘
+│          ORCHESTRATOR (Python + Google ADK 1.16.0)             │
+│                    http://localhost:8000                        │
+│                                                                 │
+│            ┌──────────────────────────┐                        │
+│            │   Root Coordinator       │                        │
+│            │   (Phase Manager)        │                        │
+│            └────────┬─────────────────┘                        │
+│                     │                                           │
+│       ┌─────────────┼─────────────┐                            │
+│       ▼             ▼             ▼                            │
+│  ┌─────────┐  ┌─────────┐  ┌──────────┐                       │
+│  │ Routing │  │  Intro  │  │ Closing  │                       │
+│  │  Agent  │  │  Agent  │  │  Agent   │                       │
+│  └─────────┘  └─────────┘  └──────────┘                       │
+│                     │                                           │
+│              ┌──────┴─────┐                                    │
+│              ▼            ▼                                    │
+│      ┌────────────┐  ┌──────────┐                             │
+│      │   Design   │  │  Coding  │                             │
+│      │   Agent    │  │  Agent   │                             │
+│      └─────┬──────┘  └──────────┘                             │
+│            │                                                    │
+└────────────┼────────────────────────────────────────────────────┘
+             │
+             │ A2A Protocol (HTTP/JSON)
+             │ Agent-to-Agent Remote Skills
+             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     REMOTE A2A AGENTS                           │
+│                                                                 │
+│   ┌─────────────────┐           ┌─────────────────┐           │
+│   │  Google Agent   │           │   Meta Agent    │           │
+│   │  (port 8003)    │           │  (port 8004)    │           │
+│   │                 │           │                 │           │
+│   │ • Scale calc    │           │ • Infra design  │           │
+│   │ • Distributed   │           │ • News feed     │           │
+│   │   systems       │           │   architecture  │           │
+│   └─────────────────┘           └─────────────────┘           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Interview Flow
+
+```
+1. User starts interview → Frontend creates DB record
+2. WebSocket connects → Orchestrator starts ADK session (InMemory)
+3. Routing agent → Determines company/type
+4. Intro agent → Collects candidate info
+5. Interview agent → Conducts technical interview
+   ├─ Design agent (system design)
+   │  └─ Calls remote agents (Google/Meta) via A2A
+   └─ Coding agent (coding interview)
+6. Closing agent → Wraps up session
+7. WebSocket disconnect → Syncs session to PostgreSQL
+8. Recording uploaded → Saved to Vercel Blob
 ```
 
 ---
 
-## 📊 End-to-End Flow
+## ✅ Implemented Features
 
-### 1. **Interview Creation**
-```
-User clicks "Start Interview"
-    ↓
-Frontend: POST /interview/new?company=google&type=system_design
-    ↓
-Server Action: createInterview() → Creates DB record with UUID
-    ↓
-Redirect to: /interview/{uuid}/system-design
-```
+### Core Platform
+- **Multi-agent orchestration** using Google ADK
+  - Phase-based routing (routing → intro → interview → closing)
+  - State management with session persistence
+  - InMemory sessions for real-time performance, synced to PostgreSQL on completion
+- **Real-time audio** with Gemini 2.5 Flash Native Audio
+  - Bidirectional streaming (PCM 16kHz → 24kHz)
+  - Barge-in support (interruption handling)
+  - Speech-to-text and text-to-speech
+- **Canvas collaboration** with Excalidraw
+  - Real-time drawing for system design diagrams
+  - State persistence to PostgreSQL
+  - Screenshot capture (every 30s sent to orchestrator)
+- **Recording & persistence**
+  - Composite video (canvas + webcam + UI) via MediaRecorder
+  - Upload to Vercel Blob storage
+  - Transcription persistence in ADK database
 
-### 2. **Interview Session Initialization**
-```
-Frontend: SystemDesignInterview component loads
-    ↓
-1. Validate interview exists (validateInterviewExists)
-2. Initialize AudioWorklet player (24kHz PCM)
-3. Get microphone stream (getUserMedia)
-4. Initialize AudioWorklet recorder (16kHz PCM)
-5. Capture canvas stream (canvas.captureStream)
-6. Mix audio streams (candidate mic + AI audio)
-7. Start screen recording (MediaRecorder)
-8. Connect WebSocket to orchestrator
-    ↓
-WebSocket: ws://localhost:8000/ws/{uuid}?is_audio=true
-```
+### Interview Types
+- **System Design** (fully implemented)
+  - Remote agent evaluation via A2A protocol
+  - Company-specific feedback (Google, Meta agents)
+  - Canvas-based diagramming
+- **Coding** (agent implemented, UI pending)
+  - Basic coding agent structure
+  - Code execution not yet integrated
 
-### 3. **Real-Time Interview Flow**
-```
-┌─────────────┐                 ┌──────────────────┐                ┌─────────────┐
-│  Frontend   │                 │  Orchestrator    │                │ Remote A2A  │
-└──────┬──────┘                 └────────┬─────────┘                └──────┬──────┘
-       │                                 │                                  │
-       │ WebSocket Connect               │                                  │
-       │─────────────────────────────────>                                  │
-       │                                 │                                  │
-       │                         routing_agent activates                    │
-       │<─────────────────────────────────                                  │
-       │ "Which company?"                │                                  │
-       │                                 │                                  │
-       │ audio/pcm (candidate voice)     │                                  │
-       │─────────────────────────────────>                                  │
-       │                                 │                                  │
-       │                         Speech-to-text → "Google system design"    │
-       │                                 │                                  │
-       │<─────────────────────────────────                                  │
-       │ audio/pcm (AI response)         │                                  │
-       │                                 │                                  │
-       │                         Transfer to intro_agent                    │
-       │<─────────────────────────────────                                  │
-       │ "Tell me about yourself"        │                                  │
-       │                                 │                                  │
-       │ audio/pcm (candidate response)  │                                  │
-       │─────────────────────────────────>                                  │
-       │                                 │                                  │
-       │                         save_candidate_info()                      │
-       │                         Transfer to interview_agent                │
-       │                                 │                                  │
-       │<─────────────────────────────────                                  │
-       │ "Design WhatsApp"               │                                  │
-       │                                 │                                  │
-       │ image/png (canvas screenshot)   │                                  │
-       │─────────────────────────────────> Receives canvas every 30s        │
-       │                                 │                                  │
-       │                                 │ A2A Request: analyze_scale       │
-       │                                 │─────────────────────────────────>│
-       │                                 │                                  │
-       │                                 │<─────────────────────────────────│
-       │                                 │ Scale calculation results        │
-       │                                 │                                  │
-       │<─────────────────────────────────                                  │
-       │ audio/pcm + text feedback       │                                  │
-       │                                 │                                  │
-       │ Candidate draws on canvas       │                                  │
-       │ (recorded via canvas.captureStream)                               │
-       │                                 │                                  │
-       │ Click "End Interview"           │                                  │
-       │─────────────────────────────────>                                  │
-       │                                 │                                  │
-       │ WebSocket disconnect            │                                  │
-       │ Stop recording                  │                                  │
-       │ Upload recording to Vercel Blob │                                  │
-       │ POST /api/interviews/{uuid}/upload-recording                       │
-       │                                 │                                  │
-       │ Update DB: status=completed, videoUrl, completedAt                 │
-       │                                 │                                  │
-       │ Redirect to /                   │                                  │
-       └─────────────────────────────────┴──────────────────────────────────┘
-```
-
-### 4. **Data Flow Details**
-
-**Frontend → Orchestrator:**
-- **Audio**: PCM 16kHz base64-encoded chunks via WebSocket
-- **Canvas**: PNG screenshots every 30 seconds via WebSocket
-- **Format**: `{ mime_type: 'audio/pcm', data: 'base64...' }`
-
-**Orchestrator → Frontend:**
-- **Audio**: PCM 24kHz base64-encoded from Gemini Live API
-- **Text**: Transcriptions (input/output) for debugging
-- **Format**: `{ author, is_partial, turn_complete, interrupted, parts: [...] }`
-
-**Orchestrator → Remote Agents:**
-- **Protocol**: A2A (Agent-to-Agent) via HTTP/JSON
-- **Skills**: Function calls with parameters
-- **Returns**: Structured results (scale calculations, design recommendations)
-
----
-
-## 🎯 Currently Implemented Features
-
-### ✅ Frontend (Next.js 16 + React 19)
-
-**Interview Management:**
-- [x] Interview creation with UUID tracking
-- [x] Server Actions for database operations
-- [x] Validation for interview existence
-- [x] Prevention of duplicate interviews (React Strict Mode handling)
-
-**Real-Time Communication:**
-- [x] WebSocket connection with auto-reconnect
-- [x] Bidirectional audio streaming (PCM format)
-- [x] Canvas screenshot transmission (every 30s)
-- [x] Structured event handling (interruption, turn completion)
-
-**Audio/Video Recording:**
-- [x] AudioWorklet-based recording (16kHz PCM)
-- [x] AudioWorklet-based playback (24kHz PCM)
-- [x] Audio mixing (candidate mic + AI audio)
-- [x] Canvas stream capture (30 FPS)
-- [x] Screen recording with MediaRecorder
-- [x] Recording upload to Vercel Blob
-- [x] Database persistence (videoUrl, status, timestamps)
-
-**User Interface:**
-- [x] Excalidraw canvas for system design diagrams
-- [x] Split panel layout (canvas + video)
-- [x] Webcam feed display
-- [x] AI avatar placeholder
-- [x] Interview timer
-- [x] End interview button with loading state
-- [x] Connection status indicators
-
-**Authentication & Authorization:**
-- [x] Better-Auth integration
-- [x] GitHub OAuth
-- [x] Google OAuth
-- [x] Protected routes
-- [x] Session management
-
-### ✅ Orchestrator (Python + Google ADK)
-
-**Multi-Agent Coordination:**
-- [x] Root coordinator agent
-- [x] Routing agent (determines interview type)
-- [x] Intro agent (candidate information collection)
-- [x] Interview agent (conducts technical interview)
-- [x] Closing agent (wraps up session)
-- [x] Agent transfer mechanism
-
-**Audio Processing:**
-- [x] Gemini 2.5 Flash Native Audio integration
-- [x] Real-time bidirectional streaming
-- [x] Speech-to-text (input transcription)
-- [x] Text-to-speech (output audio)
-- [x] Barge-in support (interruption handling)
-
-**A2A Protocol:**
-- [x] Remote agent discovery
-- [x] Skill consumption from Google Agent
-- [x] Skill consumption from Meta Agent
-- [x] HTTP/JSON communication
-- [x] Dynamic agent registration
-
-**WebSocket Server:**
-- [x] FastAPI + Uvicorn
-- [x] Client connection management
-- [x] Concurrent bidirectional messaging
-- [x] Error handling and reconnection
-- [x] UUID-based session tracking
-
-### ✅ Remote Agents (A2A Protocol)
-
-**Google Agent (port 8003):**
-- [x] Scale requirement analysis skill
-- [x] Distributed systems design skill
-- [x] Massive-scale calculations (QPS, storage, bandwidth)
-- [x] Consistency models recommendations
-- [x] Sharding strategies
-
-**Meta Agent (port 8004):**
-- [x] Infrastructure design skill
-- [x] News feed architecture skill
-- [x] CDN and edge caching recommendations
-- [x] Multi-region deployment strategies
-
-### ✅ Database & Storage
-
-**PostgreSQL + Drizzle ORM:**
-- [x] Interviews table (id, role, level, status, videoUrl, timestamps)
-- [x] Users table (Better-Auth schema)
-- [x] UUID primary keys
-- [x] Migration support
-
-**Vercel Blob Storage:**
-- [x] Video recording upload
-- [x] Public URL generation
-- [x] File naming convention (`recordings/{uuid}.webm`)
+### Infrastructure
+- **Authentication**: Better-Auth with GitHub/Google OAuth
+- **Database**: PostgreSQL with Drizzle ORM
+  - Interviews table (basic metadata, video URL)
+  - Canvas state table (Excalidraw elements/appState)
+  - ADK session tables (transcriptions, events)
+- **Storage**: Vercel Blob (video recordings)
+- **WebSocket**: FastAPI + Uvicorn (bidirectional streaming)
 
 ---
 
 ## 🛠️ Tech Stack
 
-### Frontend
-- **Framework**: Next.js 16 (App Router) + React 19
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS + shadcn/ui
-- **Auth**: Better-Auth (GitHub, Google OAuth)
-- **Database**: PostgreSQL + Drizzle ORM
-- **Storage**: Vercel Blob
-- **Canvas**: Excalidraw
-- **Audio**: Web Audio API + AudioWorklet
-
-### Backend (Orchestrator)
-- **Framework**: FastAPI + Uvicorn
-- **Language**: Python 3.14
-- **AI**: Google ADK 1.16.0
-- **Model**: Gemini 2.5 Flash Native Audio
-- **Protocol**: WebSocket (bidirectional streaming)
-
-### Remote Agents
-- **Framework**: Google ADK (A2A Protocol)
-- **Language**: Python 3.14
-- **Skills**: Custom function tools
-- **Deployment**: Standalone services (ports 8003, 8004)
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS |
+| Backend | Python 3.14, FastAPI, Google ADK 1.16.0 |
+| AI | Gemini 2.5 Flash Native Audio |
+| Database | PostgreSQL, Drizzle ORM |
+| Auth | Better-Auth |
+| Storage | Vercel Blob |
+| Canvas | Excalidraw |
 
 ---
 
@@ -314,92 +146,62 @@ WebSocket: ws://localhost:8000/ws/{uuid}?is_audio=true
 ```
 interview-agent/
 ├── services/
-│   ├── frontend/                        # Next.js frontend
+│   ├── frontend/                    # Next.js app
 │   │   ├── app/
-│   │   │   ├── (auth)/                  # Auth pages
-│   │   │   ├── (dashboard)/             # Dashboard layout
-│   │   │   ├── interview/
-│   │   │   │   ├── new/                 # Interview creation
-│   │   │   │   └── [interviewId]/
-│   │   │   │       └── system-design/   # Interview UI
-│   │   │   └── api/
-│   │   │       └── interviews/
-│   │   │           └── [id]/
-│   │   │               └── upload-recording/  # Recording upload API
+│   │   │   ├── interview/[interviewId]/system-design/  # Interview UI
+│   │   │   └── api/interviews/[id]/upload-recording/   # Recording upload
 │   │   ├── modules/
-│   │   │   ├── interview/
-│   │   │   │   ├── actions.ts           # Server actions
-│   │   │   │   ├── common/
-│   │   │   │   │   ├── hooks/           # Shared hooks
-│   │   │   │   │   │   ├── use-audio-worklet-player.ts
-│   │   │   │   │   │   ├── use-audio-worklet-recorder.ts
-│   │   │   │   │   │   ├── use-audio-mixer.ts
-│   │   │   │   │   │   ├── use-screen-recorder.ts
-│   │   │   │   │   │   ├── use-canvas-stream.ts
-│   │   │   │   │   │   ├── use-recording-upload.ts
-│   │   │   │   │   │   ├── use-canvas-screenshot.ts
-│   │   │   │   │   │   └── use-websocket.ts
-│   │   │   │   │   └── ui/              # Shared components
-│   │   │   │   └── system-design/
-│   │   │   │       └── ui/
-│   │   │   │           ├── components/  # Excalidraw
-│   │   │   │           └── views/       # Main interview view
-│   │   │   ├── home/                    # Home page
-│   │   │   └── auth/                    # Auth views
-│   │   ├── db/
-│   │   │   └── schema/
-│   │   │       └── interviews.ts        # Database schema
+│   │   │   ├── interview/           # Interview components & hooks
+│   │   │   │   ├── common/hooks/    # Audio worklets, recording, WebSocket
+│   │   │   │   └── system-design/   # System design interview UI
+│   │   │   └── home/                # Home page (company selection)
+│   │   ├── db/schema/               # Database schema
+│   │   │   ├── interviews.ts        # Interview records
+│   │   │   ├── canvas.ts            # Canvas state
+│   │   │   └── users.ts             # Better-Auth
 │   │   └── public/
-│   │       ├── audio-player-worklet.js  # Audio playback processor
-│   │       └── audio-recorder-worklet.js # Audio recording processor
+│   │       ├── audio-player-worklet.js   # 24kHz playback
+│   │       └── audio-recorder-worklet.js # 16kHz recording
 │   │
-│   ├── interview-orchestrator/          # Python orchestrator
-│   │   ├── interview_orchestrator/
-│   │   │   ├── server.py                # WebSocket server
-│   │   │   ├── root_agent.py            # Root coordinator
-│   │   │   ├── agents/
-│   │   │   │   ├── routing.py           # Routing agent
-│   │   │   │   ├── intro.py             # Intro agent
-│   │   │   │   ├── interview.py         # Interview coordinator
-│   │   │   │   ├── closing.py           # Closing agent
-│   │   │   │   └── interview_types/
-│   │   │   │       ├── coding.py        # Coding interview
-│   │   │   │       └── design.py        # System design interview
-│   │   │   └── shared/
-│   │   │       ├── schemas/             # Data models
-│   │   │       ├── prompts/             # Agent prompts
-│   │   │       └── agent_registry.py    # A2A agent discovery
-│   │   └── pyproject.toml
+│   ├── interview-orchestrator/      # Python ADK service
+│   │   └── interview_orchestrator/
+│   │       ├── server.py            # WebSocket server
+│   │       ├── root_agent.py        # Root coordinator
+│   │       ├── agents/              # Phase agents
+│   │       │   ├── routing.py
+│   │       │   ├── intro.py
+│   │       │   ├── interview.py     # Interview coordinator
+│   │       │   ├── closing.py
+│   │       │   └── interview_types/
+│   │       │       ├── design.py    # System design agent
+│   │       │       └── coding.py    # Coding agent
+│   │       └── shared/
+│   │           ├── agent_registry.py  # A2A remote agent discovery
+│   │           ├── prompts/           # Agent instructions
+│   │           └── schemas/           # Data models
 │   │
-│   ├── google-agent/                    # Google A2A agent
-│   │   ├── agent.py                     # Scale + distributed systems skills
-│   │   └── pyproject.toml
+│   ├── google-agent/                # Google A2A remote agent
+│   │   └── agent.py                 # Scale calc, distributed systems
 │   │
-│   └── meta-agent/                      # Meta A2A agent
-│       ├── agent.py                     # Infrastructure + news feed skills
-│       └── pyproject.toml
+│   └── meta-agent/                  # Meta A2A remote agent
+│       └── agent.py                 # Infrastructure, news feed
 │
-├── README.md                            # This file
-└── TODO.md                              # Implementation roadmap
+├── README.md
+└── TODO.md                          # Roadmap for pending features
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
-- **Node.js** 20+ (for frontend)
-- **Python** 3.14+ (for orchestrator and agents)
-- **PostgreSQL** (for database)
-- **Google API Key** (for Gemini models)
+- Node.js 20+
+- Python 3.14+
+- PostgreSQL
+- Google API Key (Gemini)
 
-### 1. Clone Repository
-```bash
-git clone <repository-url>
-cd interview-agent
-```
+### 1. Frontend Setup
 
-### 2. Setup Frontend
 ```bash
 cd services/frontend
 
@@ -408,150 +210,94 @@ npm install
 
 # Configure environment
 cp .env.example .env
-# Edit .env and add:
-# - DATABASE_URL (PostgreSQL connection string)
-# - GOOGLE_API_KEY
-# - BLOB_READ_WRITE_TOKEN (Vercel Blob)
-# - Better-Auth OAuth credentials
+# Required: DATABASE_URL, GOOGLE_API_KEY, BLOB_READ_WRITE_TOKEN, Better-Auth OAuth
 
-# Run database migrations
+# Run migrations
 npx drizzle-kit push
 
 # Start development server
 npm run dev
 ```
 
-Frontend will be available at: **http://localhost:3000**
+**Frontend**: http://localhost:3000
 
-### 3. Setup Interview Orchestrator
+### 2. Orchestrator Setup
+
 ```bash
 cd services/interview-orchestrator
 
 # Create virtual environment
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+uv venv && source .venv/bin/activate
 
 # Install dependencies
 uv pip install -e .
 
 # Configure environment
 cp .env.example .env
-# Edit .env and add:
-# - GOOGLE_API_KEY
+# Required: GOOGLE_API_KEY, DATABASE_URL
 
-# Start orchestrator
+# Start server
 python -m uvicorn interview_orchestrator.server:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Orchestrator will be available at: **http://localhost:8000**
+**Orchestrator**: http://localhost:8000
 
-### 4. Setup Remote Agents (Optional)
+### 3. Remote Agents (Optional - for company-specific evaluation)
 
 **Google Agent:**
 ```bash
 cd services/google-agent
-uv venv
-source .venv/bin/activate
+uv venv && source .venv/bin/activate
 uv pip install -e .
 cp .env.example .env  # Add GOOGLE_API_KEY
-
-# Start agent
 uvicorn agent:a2a_app --host localhost --port 8003
 ```
 
 **Meta Agent:**
 ```bash
 cd services/meta-agent
-uv venv
-source .venv/bin/activate
+uv venv && source .venv/bin/activate
 uv pip install -e .
 cp .env.example .env  # Add GOOGLE_API_KEY
-
-# Start agent
 uvicorn agent:a2a_app --host localhost --port 8004
 ```
 
-### 5. Start Interview
+**Configure orchestrator to use remote agents:**
+```bash
+# In services/interview-orchestrator/.env
+INTERVIEW_AGENTS=google,meta
+GOOGLE_AGENT_URL=http://localhost:8003
+GOOGLE_AGENT_TYPES=system_design,coding
+META_AGENT_URL=http://localhost:8004
+META_AGENT_TYPES=system_design
+```
 
-1. Navigate to **http://localhost:3000**
-2. Sign in with GitHub or Google
-3. Click "Start Interview" on a company card
+### 4. Start Interview
+
+1. Visit http://localhost:3000
+2. Sign in (GitHub/Google)
+3. Select company card and click "Start Interview"
 4. Grant microphone permissions
 5. Start practicing!
 
 ---
 
-## 🔧 Development
+## 🔑 Key Implementation Details
 
-### Running Tests
+### Audio Processing
+- **Frontend**: AudioWorklet processors for recording (16kHz) and playback (24kHz)
+- **Transmission**: Base64-encoded PCM chunks via WebSocket
+- **Orchestrator**: Gemini Live API handles bidirectional streaming
+- **Barge-in**: Interruptions handled by ADK event system
 
-**Frontend:**
-```bash
-cd services/frontend
-npm run test
-npm run lint
-```
+### Session Management
+- **InMemory sessions** during interview (zero latency)
+- **PostgreSQL sync** on disconnect (filtered to text transcriptions only)
+- **Canvas state** persisted separately for instant saves
+- **Video recording** uploaded to Vercel Blob on interview end
 
-**Orchestrator:**
-```bash
-cd services/interview-orchestrator
-uv run pytest
-uv run ruff check .
-```
-
-### Code Formatting
-
-**Frontend:**
-```bash
-npm run format
-```
-
-**Python:**
-```bash
-uv run ruff format .
-uv run ruff check . --fix
-```
-
----
-
-## 🐛 Troubleshooting
-
-### Issue: "Invalid interview ID" alert
-**Cause**: Navigating directly to interview page without creating a record.
-**Fix**: Always start interviews from the home page by clicking "Start Interview".
-
-### Issue: No audio from AI
-**Cause**: Orchestrator not running or WebSocket disconnected.
-**Fix**:
-1. Verify orchestrator is running on port 8000
-2. Check browser console for WebSocket errors
-3. Ensure `GOOGLE_API_KEY` is set in orchestrator .env
-
-### Issue: Recording upload fails
-**Cause**: Invalid `BLOB_READ_WRITE_TOKEN` or interview ID mismatch.
-**Fix**:
-1. Verify Vercel Blob token in frontend .env
-2. Check that interview was created properly (UUID format)
-3. Check browser network tab for error details
-
-### Issue: Canvas not captured in recording
-**Cause**: Canvas stream not ready when recording started.
-**Fix**: Already handled with 2-second delay. If still failing, check browser console for canvas capture errors.
-
----
-
-## 📝 License
-
-[Add your license here]
-
----
-
-## 🤝 Contributing
-
-[Add contributing guidelines here]
-
----
-
-## 📧 Contact
-
-[Add contact information here]
+### Multi-Agent Coordination
+- **Phase-based routing** using session state (`interview_phase`)
+- **Sub-agent transfers** via ADK agent hierarchy
+- **State propagation** through `ctx.session.state`
+- **Remote agents** consumed as tools via A2A protocol
