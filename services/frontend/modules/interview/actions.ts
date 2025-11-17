@@ -79,8 +79,8 @@ export interface UpdateInterviewInput {
   completedAt?: Date;
   durationSeconds?: number;
   canvasState?: {
-    elements: any[];
-    appState?: any;
+    elements: unknown[];
+    appState?: Record<string, unknown>;
   };
 }
 

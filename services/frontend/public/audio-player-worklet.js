@@ -17,14 +17,12 @@ class AudioPlayerProcessor extends AudioWorkletProcessor {
         // Add new audio data to our buffer
         const pcmData = new Int16Array(event.data.buffer);
         this.audioQueue.push(pcmData);
-        console.log("🎵 Audio worklet received:", pcmData.length, "samples, queue size:", this.audioQueue.length);
       } else if (event.data.type === 'flush') {
         // --- THIS IS THE CRITICAL BARGE-IN LOGIC ---
         // Clear the buffer immediately
         this.audioQueue = [];
         this.currentChunk = null;
         this.currentChunkIndex = 0;
-        console.log("Audio player flushed.");
       }
     };
   }

@@ -30,9 +30,9 @@ export default function NewInterviewPage() {
 
         // Redirect to the actual interview page with the real ID
         if (type === "system_design") {
-          router.replace(`/interview/${interview.id}/system-design`);
+          router.replace(`/interview-session/${interview.id}/system-design`);
         } else {
-          router.replace(`/interview/${interview.id}/coding`);
+          router.replace(`/interview-session/${interview.id}/coding`);
         }
       } catch (err) {
         console.error("Failed to create interview:", err);
