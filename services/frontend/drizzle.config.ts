@@ -7,6 +7,7 @@ export default defineConfig({
   dbCredentials: {
     url: process.env.DATABASE_URL!,
   },
+  schemaFilter: ["auth", "product"], // Only manage frontend schemas, not "adk" (orchestrator)
   verbose: true,
   strict: true,
 });

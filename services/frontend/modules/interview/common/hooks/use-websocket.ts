@@ -6,27 +6,18 @@ export interface WebSocketMessage {
   data: string; // Text content or base64-encoded data
 }
 
-// Event part structure matching working ADK sample
-export interface EventPart {
-  type: "text" | "audio/pcm" | "function_call" | "function_response";
+// Event part in agent response
+interface EventPart {
+  type: "audio/pcm" | "text" | "function_call" | "function_response";
   data: unknown;
 }
 
-// Transcription data structure
-export interface TranscriptionData {
-  text: string;
-  is_final: boolean;
-}
-
-// Structured message format received from backend (matching working ADK sample)
+// Agent event from orchestrator
 export interface StructuredAgentEvent {
-  author: string;
   is_partial: boolean;
   turn_complete: boolean;
   interrupted: boolean;
   parts: EventPart[];
-  input_transcription?: TranscriptionData | null;
-  output_transcription?: TranscriptionData | null;
 }
 
 export interface UseWebSocketOptions {
