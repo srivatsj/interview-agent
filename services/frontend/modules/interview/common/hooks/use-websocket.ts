@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 
 // Message format for sending to backend
 export interface WebSocketMessage {
-  mime_type: "text/plain" | "audio/pcm" | "audio/webm" | "image/png";
+  mime_type: "text/plain" | "audio/pcm" | "audio/webm" | "image/png" | "confirmation_response";
   data: string; // Text content or base64-encoded data
 }
 
@@ -12,17 +12,47 @@ interface EventPart {
   data: unknown;
 }
 
+// Session state from backend
+export interface SessionState {
+  pending_confirmation?: {
+    id: string;
+    company: string;
+    interview_type: string;
+    price: number;
+  };
+  routing_decision?: {
+    company: string;
+    interview_type: string;
+    confidence: number;
+  };
+  interview_phase?: string;
+  interview_id?: string;
+  session_key?: string;
+  [key: string]: unknown;
+}
+
 // Agent event from orchestrator
 export interface StructuredAgentEvent {
   is_partial: boolean;
   turn_complete: boolean;
   interrupted: boolean;
   parts: EventPart[];
+  state?: SessionState; // Session state included in every message
 }
+
+// State update notification (sent before tool blocks)
+export interface StateUpdateMessage {
+  type: "state_update";
+  state: SessionState;
+}
+
+// Union type for all possible WebSocket messages
+export type WebSocketIncomingMessage = StructuredAgentEvent | StateUpdateMessage;
 
 export interface UseWebSocketOptions {
   url: string;
   onMessage?: (event: StructuredAgentEvent) => void;
+  onStateUpdate?: (state: SessionState) => void;
   onConnect?: () => void;
   onDisconnect?: () => void;
   onError?: (error: Event) => void;
@@ -32,6 +62,7 @@ export interface UseWebSocketOptions {
 export function useWebSocket({
   url,
   onMessage,
+  onStateUpdate,
   onConnect,
   onDisconnect,
   onError,
@@ -70,8 +101,23 @@ export function useWebSocket({
 
       ws.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data) as StructuredAgentEvent;
-          onMessage?.(data);
+          const data = JSON.parse(event.data) as WebSocketIncomingMessage;
+
+          // Handle state_update notification (sent before tool blocks)
+          if ("type" in data && data.type === "state_update") {
+            onStateUpdate?.(data.state);
+            return;
+          }
+
+          // Handle regular structured agent events
+          const structuredEvent = data as StructuredAgentEvent;
+
+          // Check for state in regular events too (backup)
+          if (structuredEvent.state) {
+            onStateUpdate?.(structuredEvent.state);
+          }
+
+          onMessage?.(structuredEvent);
         } catch (error) {
           console.error("Failed to parse WebSocket message:", error);
         }
@@ -106,6 +152,7 @@ export function useWebSocket({
   }, [
     url,
     onMessage,
+    onStateUpdate,
     onConnect,
     onDisconnect,
     onError,

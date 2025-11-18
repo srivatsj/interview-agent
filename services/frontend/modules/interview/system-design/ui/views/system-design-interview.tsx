@@ -13,7 +13,10 @@ import { useTimer } from "@/modules/interview/common/hooks/use-timer";
 import {
   useWebSocket,
   type StructuredAgentEvent,
+  type WebSocketMessage,
 } from "@/modules/interview/common/hooks/use-websocket";
+import { useConfirmation } from "@/modules/interview/common/ui/views/use-confirmation";
+import { ConfirmationDialog } from "@/modules/interview/common/ui/components/confirmation-dialog";
 import { useAudioWorkletRecorder } from "@/modules/interview/common/hooks/use-audio-worklet-recorder";
 import { useAudioWorkletPlayer } from "@/modules/interview/common/hooks/use-audio-worklet-player";
 import { useAudioMixer } from "@/modules/interview/common/hooks/use-audio-mixer";
@@ -60,7 +63,7 @@ export function SystemDesignInterview() {
   );
 
   // Handle incoming structured messages from WebSocket
-  const handleWebSocketMessage = useCallback(
+  const handleBaseAgentEvent = useCallback(
     (event: StructuredAgentEvent) => {
       // Handle interruption - flush audio player
       if (event.interrupted) {
@@ -84,10 +87,25 @@ export function SystemDesignInterview() {
     [playAudio, flush],
   );
 
-  // WebSocket configuration
+  // WebSocket sendMessage ref for confirmation hook
+  const sendMessageRef = useRef<((message: WebSocketMessage) => boolean) | null>(null);
+
+  // Confirmation hook - handles state updates for payment confirmation
+  const {
+    confirmationRequest,
+    isConfirmationOpen,
+    handleStateUpdate,
+    handleApprove,
+    handleDecline,
+  } = useConfirmation({
+    sendMessage: sendMessageRef.current || undefined,
+  });
+
+  // WebSocket configuration - handles both events and state updates
   const { isConnected, sendMessage, connect, disconnect } = useWebSocket({
     url: websocketUrl,
-    onMessage: handleWebSocketMessage,
+    onMessage: handleBaseAgentEvent, // Handle agent events (audio, etc.)
+    onStateUpdate: handleStateUpdate, // Handle state updates (payment confirmations)
     onConnect: () => {
       isConnectedRef.current = true;
       // Initialize audio after successful connection
@@ -99,6 +117,11 @@ export function SystemDesignInterview() {
     onError: (error) => console.error("WebSocket error:", error),
     autoConnect: false,
   });
+
+  // Update sendMessage ref for confirmation hook
+  useEffect(() => {
+    sendMessageRef.current = sendMessage;
+  }, [sendMessage]);
 
   // Send audio data to WebSocket (PCM format)
   const handleAudioData = useCallback(
@@ -385,6 +408,14 @@ export function SystemDesignInterview() {
           </div>
         </div>
       )}
+
+      {/* ADK Confirmation Dialog */}
+      <ConfirmationDialog
+        open={isConfirmationOpen}
+        request={confirmationRequest}
+        onApprove={handleApprove}
+        onDecline={handleDecline}
+      />
 
       <ResizablePanelGroup
         direction="horizontal"

@@ -55,16 +55,10 @@ export function useAudioWorkletRecorder({
         );
 
         // Handle messages from worklet
-        let audioChunkCount = 0;
         workletNode.port.onmessage = (event) => {
           if (event.data.type === "audio_data") {
             const pcmDataBuffer = event.data.buffer;
             const base64Data = arrayBufferToBase64(pcmDataBuffer);
-            audioChunkCount++;
-            // Only log every 100th chunk to reduce noise
-            if (audioChunkCount % 100 === 0) {
-              console.log("🎙️ Recorder: Sent", audioChunkCount, "audio chunks");
-            }
             onAudioData(base64Data);
           } else if (event.data.type === "speech_start") {
             console.log("🎙️ Recorder: Speech detected!");
