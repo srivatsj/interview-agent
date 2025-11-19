@@ -14,21 +14,21 @@ def should_sync_event(event) -> bool:
     3. content.parts[].text (model text responses)
     """
     # Check for user input transcription (Gemini Live API transcribes user audio)
-    if hasattr(event, 'input_transcription') and event.input_transcription:
-        if hasattr(event.input_transcription, 'text') and event.input_transcription.text:
+    if hasattr(event, "input_transcription") and event.input_transcription:
+        if hasattr(event.input_transcription, "text") and event.input_transcription.text:
             if event.input_transcription.text.strip():
                 return True
 
     # Check for agent output transcription (Gemini transcribes its own audio output)
-    if hasattr(event, 'output_transcription') and event.output_transcription:
-        if hasattr(event.output_transcription, 'text') and event.output_transcription.text:
+    if hasattr(event, "output_transcription") and event.output_transcription:
+        if hasattr(event.output_transcription, "text") and event.output_transcription.text:
             if event.output_transcription.text.strip():
                 return True
 
     # Check for text in content.parts (model text responses)
-    if hasattr(event, 'content') and event.content and hasattr(event.content, 'parts'):
+    if hasattr(event, "content") and event.content and hasattr(event.content, "parts"):
         for part in event.content.parts:
-            if hasattr(part, 'text') and part.text:
+            if hasattr(part, "text") and part.text:
                 if part.text.strip():
                     return True
 
@@ -54,15 +54,19 @@ def enrich_event_content_with_transcriptions(event):
     enriched_event = copy.copy(event)
 
     # Check if event has transcriptions that need to be preserved
-    has_input_trans = (hasattr(event, 'input_transcription') and
-                      event.input_transcription and
-                      hasattr(event.input_transcription, 'text') and
-                      event.input_transcription.text)
+    has_input_trans = (
+        hasattr(event, "input_transcription")
+        and event.input_transcription
+        and hasattr(event.input_transcription, "text")
+        and event.input_transcription.text
+    )
 
-    has_output_trans = (hasattr(event, 'output_transcription') and
-                       event.output_transcription and
-                       hasattr(event.output_transcription, 'text') and
-                       event.output_transcription.text)
+    has_output_trans = (
+        hasattr(event, "output_transcription")
+        and event.output_transcription
+        and hasattr(event.output_transcription, "text")
+        and event.output_transcription.text
+    )
 
     # If no transcriptions to preserve, return original event
     if not (has_input_trans or has_output_trans):
@@ -72,16 +76,10 @@ def enrich_event_content_with_transcriptions(event):
     if has_input_trans:
         # User speech transcription
         text = event.input_transcription.text
-        enriched_event.content = Content(
-            role="user",
-            parts=[Part.from_text(text=text)]
-        )
+        enriched_event.content = Content(role="user", parts=[Part.from_text(text=text)])
     elif has_output_trans:
         # Agent speech transcription
         text = event.output_transcription.text
-        enriched_event.content = Content(
-            role="model",
-            parts=[Part.from_text(text=text)]
-        )
+        enriched_event.content = Content(role="model", parts=[Part.from_text(text=text)])
 
     return enriched_event

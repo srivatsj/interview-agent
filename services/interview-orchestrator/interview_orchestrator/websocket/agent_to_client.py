@@ -124,14 +124,14 @@ async def agent_to_client_messaging(
                 # Only log important events (skip routine audio/text to reduce noise)
                 non_audio_parts = [p for p in message_to_send["parts"] if p["type"] != "audio/pcm"]
                 has_important_event = (
-                    any(p["type"] == "function_call" for p in non_audio_parts) or
-                    message_to_send["turn_complete"] or
-                    message_to_send["interrupted"]
+                    any(p["type"] == "function_call" for p in non_audio_parts)
+                    or message_to_send["turn_complete"]
+                    or message_to_send["interrupted"]
                 )
 
                 if has_important_event:
-                    tc = message_to_send['turn_complete']
-                    intr = message_to_send['interrupted']
+                    tc = message_to_send["turn_complete"]
+                    intr = message_to_send["interrupted"]
                     logger.info(f"📤 Event: turn_complete={tc}, interrupted={intr}")
 
                 # Log when sending payment confirmation state to frontend

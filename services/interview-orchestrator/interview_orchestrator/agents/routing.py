@@ -10,10 +10,10 @@ from google.adk.agents import Agent
 from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.tools import ToolContext
 
-from ..shared.agent_registry import AgentProviderRegistry
 from ..shared.constants import get_gemini_model
+from ..shared.infra.a2a.agent_registry import AgentProviderRegistry
+from ..shared.infra.a2a.remote_client import call_remote_skill
 from ..shared.prompts.prompt_loader import load_prompt
-from ..shared.remote_client import call_remote_skill
 from ..shared.schemas.routing_decision import RoutingDecision
 from ..shared.session_store import active_sessions
 
@@ -40,10 +40,7 @@ async def confirm_company_selection(
     # Validate company/interview_type combination
     if not AgentProviderRegistry.is_valid_combination(company, interview_type):
         available = AgentProviderRegistry.get_formatted_options()
-        return (
-            f"Error: '{company} {interview_type}' not available.\n\n"
-            f"Available:\n{available}"
-        )
+        return f"Error: '{company} {interview_type}' not available.\n\nAvailable:\n{available}"
 
     # Get agent URL
     agent_url = AgentProviderRegistry.get_agent_url(company, interview_type)
@@ -56,7 +53,7 @@ async def confirm_company_selection(
         response = await call_remote_skill(
             agent_url=agent_url,
             text="Create cart for interview",
-            data={"interview_type": interview_type}
+            data={"interview_type": interview_type},
         )
         cart_mandate = response.get("cart_mandate")
         if not cart_mandate:
@@ -101,10 +98,16 @@ async def confirm_company_selection(
         websocket = active_sessions[session_key].get("websocket")
         if websocket:
             try:
-                await websocket.send_text(json.dumps({
-                    "type": "state_update",
-                    "state": {"pending_confirmation": tool_context.state["pending_confirmation"]}
-                }))
+                await websocket.send_text(
+                    json.dumps(
+                        {
+                            "type": "state_update",
+                            "state": {
+                                "pending_confirmation": tool_context.state["pending_confirmation"]
+                            },
+                        }
+                    )
+                )
                 logger.info("✅ Payment confirmation sent to frontend")
             except Exception as e:
                 logger.warning(f"⚠️ Failed to send WebSocket notification: {e}")
@@ -139,10 +142,7 @@ async def confirm_company_selection(
         "cart_mandate_id": cart_mandate["id"],
         "payment_details_total": cart_mandate["total_amount"],
         "merchant_agent": cart_mandate["merchant_agent"],
-        "payment_response": {
-            "method_name": "CARD",
-            "details": {"token": "tok_fake_test_phase1"}
-        },
+        "payment_response": {"method_name": "CARD", "details": {"token": "tok_fake_test_phase1"}},
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 

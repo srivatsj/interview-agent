@@ -7,10 +7,10 @@ from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.code_executors import BuiltInCodeExecutor
 from google.adk.tools import ToolContext
 
-from ...shared.agent_registry import AgentProviderRegistry
 from ...shared.constants import get_gemini_model
+from ...shared.infra.a2a.agent_registry import AgentProviderRegistry
+from ...shared.infra.a2a.remote_client import call_remote_skill
 from ...shared.prompts.prompt_loader import load_prompt
-from ...shared.remote_client import call_remote_skill
 
 logger = logging.getLogger(__name__)
 
@@ -42,11 +42,7 @@ async def ask_remote_expert(query: str, tool_context: ToolContext) -> str:
 
     # Call remote agent (Phase 1 - no payment proof yet)
     try:
-        response = await call_remote_skill(
-            agent_url=agent_url,
-            text=query,
-            data={}
-        )
+        response = await call_remote_skill(agent_url=agent_url, text=query, data={})
         # Extract text response from remote agent
         return response.get("message", str(response))
     except Exception as e:

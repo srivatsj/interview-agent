@@ -162,4 +162,3 @@ class AgentProviderRegistry:
         """
         options = cls.get_available_options()
         return company.lower() in options and interview_type.lower() in options[company.lower()]
-

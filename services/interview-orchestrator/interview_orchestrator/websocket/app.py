@@ -86,8 +86,7 @@ async def websocket_endpoint(
             # Wait for cancellation to complete (with timeout for safety)
             try:
                 await asyncio.wait_for(
-                    asyncio.gather(*pending, return_exceptions=True),
-                    timeout=5.0
+                    asyncio.gather(*pending, return_exceptions=True), timeout=5.0
                 )
             except asyncio.TimeoutError:
                 logger.warning(f"Timeout waiting for task cancellation: {session_key}")
@@ -118,9 +117,9 @@ async def websocket_endpoint(
             sync_result = await sync_session_to_database(user_id, interview_id)
 
             if sync_result["success"]:
-                synced = sync_result['events_synced']
-                failed = sync_result.get('events_failed', 0)
-                total = sync_result['total_events']
+                synced = sync_result["events_synced"]
+                failed = sync_result.get("events_failed", 0)
+                total = sync_result["total_events"]
 
                 if failed > 0:
                     logger.warning(
@@ -130,9 +129,7 @@ async def websocket_endpoint(
                 else:
                     logger.info(f"Session synced successfully: {synced}/{total} events")
             else:
-                logger.error(
-                    f"Session sync failed: {sync_result.get('error', 'Unknown error')}"
-                )
+                logger.error(f"Session sync failed: {sync_result.get('error', 'Unknown error')}")
         except Exception as sync_error:
             logger.error(
                 f"Critical error during sync for {session_key}: {sync_error}", exc_info=True

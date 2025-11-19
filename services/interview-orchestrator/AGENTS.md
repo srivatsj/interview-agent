@@ -333,17 +333,12 @@ routing → intro → design_agent → closing → done
 ### Auto-Discovery
 
 ```python
-from interview_orchestrator.shared.agent_registry import AgentRegistry
+from interview_orchestrator.shared.infra.a2a.agent_registry import AgentProviderRegistry
 
-registry = AgentRegistry()
-await registry.discover_agents([
-    "http://localhost:8001",
-    "http://localhost:8002",
-    "http://localhost:8003",
-    "http://localhost:8004"
-])
-
-# Agents are now available to design_agent
+# Agents are configured via environment variables
+# See INTERVIEW_AGENTS, GOOGLE_AGENT_URL, etc.
+options = AgentProviderRegistry.get_available_options()
+# Returns: {"google": ["coding", "system_design"], "meta": ["system_design"]}
 ```
 
 ### Skill Delegation

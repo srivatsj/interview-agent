@@ -150,14 +150,11 @@ async def sync_session_to_database(user_id: str, interview_id: str) -> dict:
 
             # Enrich events with transcription data before syncing
             # (ADK's append_event only persists content field)
-            enriched_batch = [
-                enrich_event_content_with_transcriptions(event) for event in batch
-            ]
+            enriched_batch = [enrich_event_content_with_transcriptions(event) for event in batch]
 
             # Sync batch in parallel using asyncio.gather
             tasks = [
-                db_service.append_event(session=db_session, event=event)
-                for event in enriched_batch
+                db_service.append_event(session=db_session, event=event) for event in enriched_batch
             ]
 
             try:
@@ -168,7 +165,7 @@ async def sync_session_to_database(user_id: str, interview_id: str) -> dict:
                 for idx, result in enumerate(results):
                     if isinstance(result, Exception):
                         failed_events += 1
-                        logger.error(f"Failed to sync event {i+idx+1}/{total_events}: {result}")
+                        logger.error(f"Failed to sync event {i + idx + 1}/{total_events}: {result}")
                     else:
                         synced_events += 1
 

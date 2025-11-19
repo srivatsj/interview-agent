@@ -61,9 +61,7 @@ async def client_to_agent_messaging(
                                     f"Confirmation ID {confirmation_id} not found in pending"
                                 )
                         else:
-                            logger.warning(
-                                "No _pending_confirmations attribute on session"
-                            )
+                            logger.warning("No _pending_confirmations attribute on session")
                     else:
                         logger.warning(f"Session {session_key} not found in active sessions")
 
