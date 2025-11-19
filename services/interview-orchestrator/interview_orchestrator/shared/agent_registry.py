@@ -8,8 +8,6 @@ import os
 from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
-from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
-from google.adk.tools import AgentTool
 
 # Load environment variables
 load_dotenv()
@@ -165,29 +163,3 @@ class AgentProviderRegistry:
         options = cls.get_available_options()
         return company.lower() in options and interview_type.lower() in options[company.lower()]
 
-    @classmethod
-    def get_remote_agent_tools(cls, interview_type: str) -> list:
-        """Build AgentTools for all companies supporting the given interview type.
-
-        Args:
-            interview_type: Interview type (e.g., 'system_design', 'coding')
-
-        Returns:
-            List of AgentTools for remote agents supporting this interview type
-        """
-        tools = []
-        available_options = cls.get_available_options()
-
-        for company, interview_types in available_options.items():
-            agent_url = cls.get_agent_url(company, interview_type)
-            remote_agent = RemoteA2aAgent(
-                name=f"{company}_{interview_type}_agent",
-                description=(
-                    f"{company.title()} {interview_type.replace('_', ' ')} expert "
-                    "with company-specific technical guidance"
-                ),
-                agent_card=f"{agent_url}/.well-known/agent-card.json",
-            )
-            tools.append(AgentTool(remote_agent, skip_summarization=True))
-
-        return tools

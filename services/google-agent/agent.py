@@ -1,149 +1,100 @@
-"""
-Google System Design Interview Agent - Exposed via A2A Protocol
+"""Google System Design Interview Agent - Exposed via A2A Protocol
 
-This agent has 2 skills:
-1. Analyze Scale Requirements - Calculate scale for billions of users
-2. Design Distributed Systems - Suggest distributed architecture patterns
+Conducts Google-style system design interviews with premium feedback.
+Exposes cart creation for AP2 payment protocol.
 """
 
+import json
 import os
+import uuid
+from datetime import datetime, timezone
 
 from a2a.types import AgentCard, AgentSkill
 from dotenv import load_dotenv
 from google.adk.a2a.utils.agent_to_a2a import to_a2a
 from google.adk.agents import Agent
+from google.adk.tools import ToolContext
 
-# Load environment variables from .env file
 load_dotenv()
 
 
-# Skill 1: Analyze Scale Requirements
-def analyze_scale_requirements(scenario: str) -> dict:
-    """
-    Analyze scale requirements for massive-scale systems.
-
-    This is SKILL 1: Analyze Scale Requirements
-    Use for: billion-user scenarios, global scale calculations, data center planning
+# Cart creation skill for AP2 payment protocol
+def create_cart_for_interview(interview_type: str, tool_context: ToolContext) -> str:
+    """Create cart mandate for Google interview purchase.
 
     Args:
-        scenario: Description of the scenario (e.g., "2B users, 50 searches/day/user")
+        interview_type: Type of interview (system_design, coding, behavioral)
+        tool_context: ADK tool context
 
     Returns:
-        dict with scale analysis
+        JSON string with cart_mandate
     """
-    # Simple mock analysis - in real agent, would do detailed calculations
-    analysis = {
-        "requests_per_second": "~1.16M QPS (2B users * 50 searches / 86400 seconds)",
-        "storage_per_day": "~500 TB/day for search logs",
-        "bandwidth": "~5 Tbps for global traffic",
-        "infrastructure": {
-            "data_centers": "10+ regions globally for low latency",
-            "servers": "~100K+ servers for compute",
-            "recommendation": "Use CDN, edge caching, and multi-region deployment",
-        },
+
+    # Google interview pricing
+    PRICING = {
+        "system_design": 3.00,
+        "coding": 4.00,
+        "behavioral": 2.50,
     }
 
-    return {
-        "success": True,
-        "skill": "analyze_scale_requirements",
-        "scenario": scenario,
-        "analysis": analysis,
-        "message": f"Scale analysis for: {scenario}",
+    price = PRICING.get(interview_type.lower(), 3.00)
+    cart_id = f"cart_google_{interview_type}_{uuid.uuid4().hex[:8]}"
+
+    # Create CartMandate (simplified for Phase 1 - no actual AP2 types yet)
+    cart_mandate = {
+        "id": cart_id,
+        "merchant_agent": "google_design_agent",
+        "total_amount": {"currency": "USD", "value": price},
+        "display_items": [
+            {
+                "label": f"Google {interview_type.replace('_', ' ').title()} Interview",
+                "amount": {"currency": "USD", "value": price},
+            }
+        ],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
-
-# Skill 2: Design Distributed Systems
-def design_distributed_systems(use_case: str) -> dict:
-    """
-    Suggest distributed system architecture patterns.
-
-    This is SKILL 2: Design Distributed Systems
-    Use for: consistency models, replication, sharding, consensus algorithms
-
-    Args:
-        use_case: Description of what's needed (e.g., "global state management")
-
-    Returns:
-        dict with distributed system design suggestions
-    """
-    # Simple mock recommendations
-    suggestions = {
-        "consistency": [
-            "Strong consistency with Paxos/Raft for critical data",
-            "Eventual consistency with CRDTs for high availability",
-            "Read-your-writes for user sessions",
-        ],
-        "replication": [
-            "Multi-region active-active for disaster recovery",
-            "Leader-follower for read scalability",
-            "Quorum-based writes for durability",
-        ],
-        "sharding": [
-            "Consistent hashing for load distribution",
-            "Range-based sharding for time-series data",
-            "Geographic sharding for data locality",
-        ],
-        "patterns": [
-            "CQRS for read/write separation",
-            "Event sourcing for audit trail",
-            "Saga pattern for distributed transactions",
-        ],
-    }
-
-    return {
-        "success": True,
-        "skill": "design_distributed_systems",
-        "use_case": use_case,
-        "suggestions": suggestions,
-        "message": f"Distributed system design for: {use_case}",
-    }
+    # Return as JSON string (ADK will send this as text over A2A)
+    return json.dumps({"cart_mandate": cart_mandate}, indent=2)
 
 
-# Create the Google system design agent
+# System design interview agent
 root_agent = Agent(
     name="google_system_design_agent",
     model=os.getenv("AGENT_MODEL", "gemini-2.0-flash-exp"),
-    description="Google system design interview expert for massive scale and distributed systems",
-    instruction="""You are a Google system design interview expert with two specialized skills:
+    description="Google-style system design interviewer with premium feedback",
+    instruction="""You are a senior Google engineer conducting a system design interview.
 
-1. ANALYZE SCALE REQUIREMENTS: Use analyze_scale_requirements for billion-user scale calculations
-2. DESIGN DISTRIBUTED SYSTEMS: Use design_distributed_systems for distributed architecture patterns
+Focus areas:
+- Scale: billions of users, QPS calculations, data volume estimation
+- Distributed systems: consistency, replication, sharding, CAP theorem
+- Google-specific: Spanner, Bigtable, MapReduce patterns
+- Production: monitoring, reliability, disaster recovery
 
-Use these tools to help evaluate large-scale system designs.""",
-    tools=[analyze_scale_requirements, design_distributed_systems],
+Be thorough but conversational. Ask clarifying questions.
+Guide the candidate through trade-offs.""",
+    tools=[create_cart_for_interview],
 )
 
-# Define custom agent card with 2 explicit skills
+# Agent card with cart creation skill
 agent_card = AgentCard(
     name="google_system_design_agent",
-    url="http://localhost:8003",
-    description="Google system design interview expert for massive scale and distributed systems",
+    url="http://localhost:8001",
+    description="Google system design interview expert with premium feedback",
     version="1.0.0",
     capabilities={},
     skills=[
         AgentSkill(
-            id="analyze_scale_requirements",
-            name="Analyze Scale Requirements",
-            description=(
-                "Analyzes requirements for billion-user scale systems with "
-                "QPS, storage, and infrastructure planning"
-            ),
-            tags=["scale", "billions", "infrastructure"],
-        ),
-        AgentSkill(
-            id="design_distributed_systems",
-            name="Design Distributed Systems",
-            description=(
-                "Suggests distributed system patterns including consistency, "
-                "replication, sharding, and consensus"
-            ),
-            tags=["distributed", "consistency", "replication"],
+            id="create_cart_for_interview",
+            name="Create Interview Cart",
+            description="Creates cart mandate with pricing for Google interview purchase",
+            tags=["payment", "cart", "interview"],
         ),
     ],
     defaultInputModes=["text/plain"],
-    defaultOutputModes=["text/plain"],
+    defaultOutputModes=["application/json"],
     supportsAuthenticatedExtendedCard=False,
 )
 
-# Expose agent via A2A protocol with custom agent card
-a2a_app = to_a2a(root_agent, port=8003, agent_card=agent_card)
+# Expose via A2A protocol
+a2a_app = to_a2a(root_agent, port=8001, agent_card=agent_card)
