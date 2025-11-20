@@ -37,11 +37,12 @@ async def start_agent_session(user_id: str, interview_id: str, is_audio: bool = 
     # Create session key
     session_key = f"{user_id}:{interview_id}"
 
-    # Create a Session with interview_id in state
+    # Create a Session with user_id and interview_id in state
     session = await runner.session_service.create_session(
         app_name=APP_NAME,
         user_id=user_id,
         state={
+            "user_id": user_id,  # Store for payment flow
             "interview_id": interview_id,
             "session_key": session_key,  # Store for tool access
         },

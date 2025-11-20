@@ -121,6 +121,17 @@ async def call_remote_skill(
 
     for message in task.history or []:
         for part in message.parts:
+            # Check for TextPart with JSON response
+            if hasattr(part.root, "text") and part.root.text:
+                try:
+                    parsed = json.loads(part.root.text)
+                    if isinstance(parsed, dict):
+                        result_data.update(parsed)
+                        keys = list(parsed.keys())
+                        logger.debug(f"Parsed text response from remote agent: {keys}")
+                except (json.JSONDecodeError, ValueError):
+                    pass  # Not JSON, skip
+
             # Check for function response in DataPart
             if hasattr(part.root, "data") and part.root.data:
                 metadata = getattr(part, "metadata", None) or getattr(part.root, "metadata", None)
@@ -139,5 +150,11 @@ async def call_remote_skill(
                                 logger.debug("Parsed function response from remote agent")
                         except (json.JSONDecodeError, ValueError) as e:
                             logger.warning(f"Failed to parse function response JSON: {e}")
+
+    if not result_data:
+        history_len = len(task.history or [])
+        logger.warning(
+            f"No data extracted from remote agent response. Task history: {history_len} messages"
+        )
 
     return result_data

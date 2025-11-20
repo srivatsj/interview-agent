@@ -276,6 +276,9 @@ export default function DashboardLayout({
                   <DropdownMenuItem asChild>
                     <Link href="/settings">Settings</Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings/payment">Payment Settings</Link>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut}>
                     Sign Out

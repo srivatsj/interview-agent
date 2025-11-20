@@ -5,10 +5,12 @@ Exposes cart creation for AP2 payment protocol.
 """
 
 import json
+import logging
 import os
 import uuid
 from datetime import datetime, timezone
 
+import httpx
 from a2a.types import AgentCard, AgentSkill
 from dotenv import load_dotenv
 from google.adk.a2a.utils.agent_to_a2a import to_a2a
@@ -16,6 +18,11 @@ from google.adk.agents import Agent
 from google.adk.tools import ToolContext
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+# Frontend URL (Credentials Provider)
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 
 # Cart creation skill for AP2 payment protocol
@@ -44,6 +51,7 @@ def create_cart_for_interview(interview_type: str, tool_context: ToolContext) ->
     cart_mandate = {
         "id": cart_id,
         "merchant_agent": "google_design_agent",
+        "interview_type": interview_type,  # Include for transaction tracking
         "total_amount": {"currency": "USD", "value": price},
         "display_items": [
             {
@@ -56,6 +64,62 @@ def create_cart_for_interview(interview_type: str, tool_context: ToolContext) ->
 
     # Return as JSON string (ADK will send this as text over A2A)
     return json.dumps({"cart_mandate": cart_mandate}, indent=2)
+
+
+async def process_payment(payment_mandate: dict, tool_context: ToolContext) -> str:
+    """Process payment via Frontend (Credentials Provider).
+
+    This is the merchant side of the AP2 payment flow. Receives PaymentMandate
+    from Shopping Agent, forwards to Credentials Provider for charging.
+
+    Args:
+        payment_mandate: Payment mandate with cart hash and payment token
+        tool_context: ADK tool context
+
+    Returns:
+        JSON string with payment_receipt
+    """
+    mandate_id = payment_mandate.get("payment_mandate_id", "unknown")
+    logger.info(f"💳 Processing payment mandate: {mandate_id}")
+
+    try:
+        # Call Frontend (Credentials Provider) to execute payment
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{FRONTEND_URL}/api/payments/execute",
+                json={"payment_mandate": payment_mandate},
+                timeout=30.0,
+            )
+            response.raise_for_status()
+            result = response.json()
+
+        payment_receipt = result.get("payment_receipt", {})
+        logger.info(f"✅ Payment processed: {payment_receipt.get('payment_id', 'unknown')}")
+
+        return json.dumps({"payment_receipt": payment_receipt}, indent=2)
+
+    except httpx.HTTPStatusError as e:
+        logger.error(f"❌ Payment failed with status {e.response.status_code}: {e.response.text}")
+        return json.dumps({
+            "payment_receipt": {
+                "payment_id": "",
+                "payment_status": {
+                    "status": "failed",
+                    "error": f"Payment processing failed: {e.response.text}",
+                },
+            }
+        }, indent=2)
+    except Exception as e:
+        logger.error(f"❌ Payment processing error: {e}")
+        return json.dumps({
+            "payment_receipt": {
+                "payment_id": "",
+                "payment_status": {
+                    "status": "failed",
+                    "error": f"Payment processing error: {str(e)}",
+                },
+            }
+        }, indent=2)
 
 
 # System design interview agent
@@ -73,7 +137,7 @@ Focus areas:
 
 Be thorough but conversational. Ask clarifying questions.
 Guide the candidate through trade-offs.""",
-    tools=[create_cart_for_interview],
+    tools=[create_cart_for_interview, process_payment],
 )
 
 # Agent card with cart creation skill
@@ -89,6 +153,12 @@ agent_card = AgentCard(
             name="Create Interview Cart",
             description="Creates cart mandate with pricing for Google interview purchase",
             tags=["payment", "cart", "interview"],
+        ),
+        AgentSkill(
+            id="process_payment",
+            name="Process Payment",
+            description="Processes payment mandate via Credentials Provider",
+            tags=["payment", "ap2", "stripe"],
         ),
     ],
     defaultInputModes=["text/plain"],

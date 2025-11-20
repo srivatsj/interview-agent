@@ -4,7 +4,6 @@ import asyncio
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
 
 from google.adk.agents import Agent
 from google.adk.agents.readonly_context import ReadonlyContext
@@ -12,7 +11,8 @@ from google.adk.tools import ToolContext
 
 from ..shared.constants import get_gemini_model
 from ..shared.infra.a2a.agent_registry import AgentProviderRegistry
-from ..shared.infra.a2a.remote_client import call_remote_skill
+from ..shared.infra.ap2.cart_helpers import get_cart_mandate
+from ..shared.infra.ap2.payment_flow import process_payment
 from ..shared.prompts.prompt_loader import load_prompt
 from ..shared.schemas.routing_decision import RoutingDecision
 from ..shared.session_store import active_sessions
@@ -48,23 +48,11 @@ async def confirm_company_selection(
         return f"Error: No agent URL configured for {company}"
 
     # Call remote agent to create cart with pricing
-    logger.info(f"💳 Requesting cart from {company} agent at {agent_url}")
-    try:
-        response = await call_remote_skill(
-            agent_url=agent_url,
-            text="Create cart for interview",
-            data={"interview_type": interview_type},
-        )
-        cart_mandate = response.get("cart_mandate")
-        if not cart_mandate:
-            logger.error("❌ Remote agent did not return cart_mandate")
-            return "Error: Remote agent did not return cart_mandate"
+    cart_mandate, error = await get_cart_mandate(agent_url, company, interview_type)
+    if error:
+        return error
 
-        price = cart_mandate["total_amount"]["value"]
-        logger.info(f"✅ Cart received: ${price:.2f} for {company} {interview_type}")
-    except Exception as e:
-        logger.error(f"❌ Failed to get cart from {agent_url}: {e}")
-        return f"Error: Failed to get pricing from {company} agent"
+    price = cart_mandate["total_amount"]["value"]
 
     # Setup confirmation flow
     confirmation_id = str(uuid.uuid4())
@@ -94,27 +82,27 @@ async def confirm_company_selection(
     # Notify frontend via WebSocket
     session_key = tool_context.state.get("session_key")
     logger.info(f"📡 Notifying frontend via WebSocket (session_key: {session_key})")
-    if session_key in active_sessions:
-        websocket = active_sessions[session_key].get("websocket")
-        if websocket:
-            try:
-                await websocket.send_text(
-                    json.dumps(
-                        {
-                            "type": "state_update",
-                            "state": {
-                                "pending_confirmation": tool_context.state["pending_confirmation"]
-                            },
-                        }
-                    )
-                )
-                logger.info("✅ Payment confirmation sent to frontend")
-            except Exception as e:
-                logger.warning(f"⚠️ Failed to send WebSocket notification: {e}")
-        else:
-            logger.warning(f"⚠️ No WebSocket found for session {session_key}")
-    else:
-        logger.warning(f"⚠️ Session key {session_key} not in active_sessions")
+
+    websocket = active_sessions.get(session_key, {}).get("websocket") if session_key else None
+    if not session_key or not websocket:
+        logger.error(f"❌ WebSocket not available for session {session_key}")
+        return "Error: WebSocket connection not found. Please refresh and try again."
+
+    try:
+        await websocket.send_text(
+            json.dumps(
+                {
+                    "type": "state_update",
+                    "state": {
+                        "pending_confirmation": tool_context.state["pending_confirmation"]
+                    },
+                }
+            )
+        )
+        logger.info("✅ Payment confirmation sent to frontend")
+    except Exception as e:
+        logger.error(f"❌ Failed to send WebSocket notification: {e}")
+        return "Error: Failed to send payment confirmation. Please try again."
 
     # Wait for user response (blocks for up to 60 seconds)
     logger.info("⏳ Waiting for user response (timeout: 60s)...")
@@ -135,38 +123,48 @@ async def confirm_company_selection(
         logger.info("❌ Payment declined by user")
         return f"Payment declined for {company.title()} {interview_type.replace('_', ' ')}."
 
-    # User approved - create PaymentMandate (Phase 1: fake token)
-    logger.info("💰 Creating payment mandate...")
-    payment_mandate = {
-        "payment_mandate_id": str(uuid.uuid4()),
-        "cart_mandate_id": cart_mandate["id"],
-        "payment_details_total": cart_mandate["total_amount"],
-        "merchant_agent": cart_mandate["merchant_agent"],
-        "payment_response": {"method_name": "CARD", "details": {"token": "tok_fake_test_phase1"}},
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
+    # AP2 Flow: User approved, now process payment
+    user_id = tool_context.state.get("user_id")
+    interview_id = tool_context.state.get("interview_id")
 
-    # Save payment proof and routing decision
-    tool_context.state["payment_proof"] = payment_mandate
+    if not user_id:
+        logger.error("❌ user_id not found in session state")
+        return "Error: User not authenticated. Please refresh and try again."
+
+    # Process payment via AP2 protocol
+    payment_receipt, error = await process_payment(
+        cart_mandate=cart_mandate,
+        user_id=user_id,
+        interview_id=interview_id,
+        agent_url=agent_url,
+        company=company,
+    )
+    if error:
+        return error
+
+    # Store payment proof and routing decision
+    tool_context.state["payment_proof"] = payment_receipt
+    tool_context.state["payment_completed"] = True
     tool_context.state["routing_decision"] = RoutingDecision(
         company=company.lower(),
         interview_type=interview_type.lower(),
         confidence=1.0,
     ).model_dump()
     tool_context.state["interview_phase"] = "intro"
-    tool_context.state["payment_completed"] = True
 
     interview_name = f"{company.title()} {interview_type.replace('_', ' ')}"
-    logger.info(f"✅ Payment approved! Starting {interview_name} interview")
-    return f"Payment approved (${price:.2f}). Starting {interview_name} interview."
+    logger.info(f"✅ Payment proof stored! Starting {interview_name} interview")
+    return f"Payment successful (${price:.2f}). Starting {interview_name} interview."
 
 
 def _cleanup_confirmation(tool_context: ToolContext, session, confirmation_id: str) -> None:
     """Clean up confirmation state and events."""
     tool_context.state["pending_confirmation"] = None
-    if hasattr(session, "_pending_confirmations"):
-        if confirmation_id in session._pending_confirmations:
-            del session._pending_confirmations[confirmation_id]
+    if (
+        hasattr(session, "_pending_confirmations")
+        and confirmation_id in session._pending_confirmations
+    ):
+        del session._pending_confirmations[confirmation_id]
 
 
 def get_routing_instruction(ctx: ReadonlyContext) -> str:
