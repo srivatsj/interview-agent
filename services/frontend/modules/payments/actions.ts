@@ -3,6 +3,7 @@
 import Stripe from "stripe";
 import { db } from "@/db";
 import { userPaymentMethods } from "@/db/schema/payments";
+import { user } from "@/db/schema/users";
 import { eq } from "drizzle-orm";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -48,21 +49,63 @@ export async function setupPaymentMethod(
       `✅ Existing Stripe customer found: ${existing[0].stripeCustomerId}`
     );
 
-    // Create SetupIntent for existing customer
-    const setupIntent = await stripe.setupIntents.create({
-      customer: existing[0].stripeCustomerId,
-      payment_method_types: ["card"],
-    });
+    try {
+      // Verify customer exists in Stripe
+      await stripe.customers.retrieve(existing[0].stripeCustomerId);
 
-    return {
-      clientSecret: setupIntent.client_secret!,
-      stripeCustomerId: existing[0].stripeCustomerId,
-    };
+      // Create SetupIntent for existing customer
+      const setupIntent = await stripe.setupIntents.create({
+        customer: existing[0].stripeCustomerId,
+        payment_method_types: ["card"],
+      });
+
+      return {
+        clientSecret: setupIntent.client_secret!,
+        stripeCustomerId: existing[0].stripeCustomerId,
+      };
+    } catch (error: unknown) {
+      // If customer doesn't exist in Stripe anymore, delete the old record
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "resource_missing"
+      ) {
+        console.log(
+          `⚠️  Stripe customer ${existing[0].stripeCustomerId} not found, creating new one...`
+        );
+
+        // Delete old record
+        await db
+          .delete(userPaymentMethods)
+          .where(eq(userPaymentMethods.userId, userId));
+
+        // Fall through to create new customer below
+      } else {
+        throw error;
+      }
+    }
   }
 
-  // Create new Stripe customer
+  // Get user details for Stripe customer
+  const [userData] = await db
+    .select({
+      email: user.email,
+      name: user.name,
+    })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+
+  if (!userData) {
+    throw new Error("User not found");
+  }
+
+  // Create new Stripe customer with user details
   console.log("💳 Creating new Stripe customer...");
   const customer = await stripe.customers.create({
+    email: userData.email,
+    name: userData.name,
     metadata: { userId },
   });
 

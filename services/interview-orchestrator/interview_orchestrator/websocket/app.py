@@ -2,12 +2,14 @@
 
 import asyncio
 import logging
+import os
 from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from google.adk.sessions import DatabaseSessionService
 
 from ..root_agent import root_agent
 from ..shared.session_store import active_sessions
@@ -19,6 +21,38 @@ logger = logging.getLogger(__name__)
 
 # FastAPI application
 app = FastAPI(title="Interview Orchestrator")
+
+
+@app.on_event("startup")
+async def initialize_database():
+    """Initialize ADK database tables on startup."""
+    database_url = os.getenv("DATABASE_URL", "postgresql://localhost:5432/interview_db")
+    logger.info(f"Initializing ADK database tables at {database_url}")
+
+    try:
+        # Create DatabaseSessionService to trigger table creation
+        db_service = DatabaseSessionService(db_url=database_url)
+
+        # Create a dummy session to ensure tables are created
+        # This will create adk_sessions and adk_events tables
+        dummy_session = await db_service.create_session(
+            app_name="interview_orchestrator",
+            user_id="init",
+            state={"initialized": True}
+        )
+
+        # Delete the dummy session (requires app_name, user_id, and session_id)
+        await db_service.delete_session(
+            app_name="interview_orchestrator",
+            user_id="init",
+            session_id=dummy_session.id
+        )
+
+        logger.info("✅ ADK database tables initialized successfully")
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize ADK database tables: {e}")
+        # Don't raise - allow app to start even if DB init fails
+        # Tables will be created on first session sync instead
 
 # Static files
 STATIC_DIR = Path("static")

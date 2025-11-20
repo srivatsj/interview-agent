@@ -26,15 +26,18 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 
 # Cart creation skill for AP2 payment protocol
-def create_cart_for_interview(interview_type: str, tool_context: ToolContext) -> str:
+def create_cart_for_interview(interview_type: str, tool_context: ToolContext) -> dict:
     """Create cart mandate for Google interview purchase.
 
+    Creates a cart with pricing for the specified interview type.
+    Returns the cart mandate that should be sent to the shopping agent.
+
     Args:
-        interview_type: Type of interview (system_design, coding, behavioral)
+        interview_type: Type of interview - must be one of: system_design, coding, behavioral
         tool_context: ADK tool context
 
     Returns:
-        JSON string with cart_mandate
+        dict containing cart_mandate with pricing and interview details
     """
 
     # Google interview pricing
@@ -62,22 +65,24 @@ def create_cart_for_interview(interview_type: str, tool_context: ToolContext) ->
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
-    # Return as JSON string (ADK will send this as text over A2A)
-    return json.dumps({"cart_mandate": cart_mandate}, indent=2)
+    # Return as dict (ADK preferred format, remote client extracts from data parts)
+    result = {"cart_mandate": cart_mandate}
+    logger.info(f"🎯 Returning cart mandate: {json.dumps(result, indent=2)}")
+    return result
 
 
-async def process_payment(payment_mandate: dict, tool_context: ToolContext) -> str:
+async def process_payment(payment_mandate: dict, tool_context: ToolContext) -> dict:
     """Process payment via Frontend (Credentials Provider).
 
     This is the merchant side of the AP2 payment flow. Receives PaymentMandate
     from Shopping Agent, forwards to Credentials Provider for charging.
 
     Args:
-        payment_mandate: Payment mandate with cart hash and payment token
+        payment_mandate: Payment mandate dict with cart_hash, payment_token, and details
         tool_context: ADK tool context
 
     Returns:
-        JSON string with payment_receipt
+        dict with payment_receipt containing payment_id and status
     """
     mandate_id = payment_mandate.get("payment_mandate_id", "unknown")
     logger.info(f"💳 Processing payment mandate: {mandate_id}")
@@ -96,11 +101,13 @@ async def process_payment(payment_mandate: dict, tool_context: ToolContext) -> s
         payment_receipt = result.get("payment_receipt", {})
         logger.info(f"✅ Payment processed: {payment_receipt.get('payment_id', 'unknown')}")
 
-        return json.dumps({"payment_receipt": payment_receipt}, indent=2)
+        result = {"payment_receipt": payment_receipt}
+        logger.info(f"🎯 Returning payment receipt: {json.dumps(result, indent=2)}")
+        return result
 
     except httpx.HTTPStatusError as e:
         logger.error(f"❌ Payment failed with status {e.response.status_code}: {e.response.text}")
-        return json.dumps({
+        result = {
             "payment_receipt": {
                 "payment_id": "",
                 "payment_status": {
@@ -108,10 +115,12 @@ async def process_payment(payment_mandate: dict, tool_context: ToolContext) -> s
                     "error": f"Payment processing failed: {e.response.text}",
                 },
             }
-        }, indent=2)
+        }
+        logger.info(f"🎯 Returning error payment receipt: {json.dumps(result, indent=2)}")
+        return result
     except Exception as e:
         logger.error(f"❌ Payment processing error: {e}")
-        return json.dumps({
+        result = {
             "payment_receipt": {
                 "payment_id": "",
                 "payment_status": {
@@ -119,7 +128,9 @@ async def process_payment(payment_mandate: dict, tool_context: ToolContext) -> s
                     "error": f"Payment processing error: {str(e)}",
                 },
             }
-        }, indent=2)
+        }
+        logger.info(f"🎯 Returning error payment receipt: {json.dumps(result, indent=2)}")
+        return result
 
 
 # System design interview agent

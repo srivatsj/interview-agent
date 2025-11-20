@@ -98,6 +98,11 @@ export interface InterviewDetail extends CompletedInterview {
     elements: unknown[];
     appState: Record<string, unknown>;
   } | null;
+  payment: {
+    amountCents: number;
+    status: string;
+    createdAt: Date;
+  } | null;
 }
 
 export async function getInterviewById(
@@ -167,6 +172,40 @@ export async function getInterviewById(
       .from(canvasState)
       .where(eq(canvasState.interviewId, interviewId))
       .limit(1);
+
+    // Get payment information
+    let payment: { amountCents: number; status: string; createdAt: Date } | null = null;
+    try {
+      const paymentResult = await db.execute<{
+        amount_cents: number;
+        status: string;
+        created_at: Date;
+      }>(sql`
+        SELECT
+          amount_cents,
+          status,
+          created_at
+        FROM product.ap2_transactions
+        WHERE interview_id = ${interviewId}
+        LIMIT 1
+      `);
+
+      const paymentRows = Array.isArray(paymentResult)
+        ? paymentResult
+        : paymentResult.rows || [];
+
+      if (paymentRows.length > 0) {
+        const paymentData = paymentRows[0];
+        payment = {
+          amountCents: paymentData.amount_cents,
+          status: paymentData.status,
+          createdAt: paymentData.created_at,
+        };
+      }
+    } catch (error) {
+      console.error("Failed to fetch payment information:", error);
+      // Continue without payment info rather than failing
+    }
 
     // Get transcriptions from ADK events table
     let transcriptions: TranscriptionRow[] = [];
@@ -280,6 +319,7 @@ export async function getInterviewById(
             appState: (canvas.appState || {}) as Record<string, unknown>,
           }
         : null,
+      payment,
     };
   } catch (error) {
     console.error("Failed to fetch interview details:", error);

@@ -115,46 +115,97 @@ async def call_remote_skill(
     client = RemoteAgentClient(agent_url)
     task = await client.send_message(text, data)
 
-    # Extract tool response from task history
-    # ADK stores function responses in task.history with metadata adk_type='function_response'
+    # DEBUG: Print entire task structure
+    logger.info(f"📦 Task ID: {task.id}")
+    logger.info(f"📦 Task status: {task.status.state if task.status else 'None'}")
+    has_msg = task.status.message is not None if task.status else False
+    logger.info(f"📦 Has status.message: {has_msg}")
+    logger.info(f"📦 Has artifacts: {task.artifacts is not None}")
+    logger.info(f"📦 Has history: {task.history is not None}")
+
+    if task.status and task.status.message:
+        logger.info(f"📦 status.message.parts count: {len(task.status.message.parts)}")
+        for i, part in enumerate(task.status.message.parts):
+            logger.info(f"📦 status.message.parts[{i}].kind: {part.root.kind}")
+            if part.root.kind == "text":
+                text_preview = part.root.text[:200] if part.root.text else "None"
+                logger.info(f"📦 status.message.parts[{i}].text: {text_preview}")
+            if part.root.kind == "data":
+                logger.info(f"📦 status.message.parts[{i}].data: {part.root.data}")
+
+    if task.artifacts:
+        logger.info(f"📦 artifacts count: {len(task.artifacts)}")
+        for i, artifact in enumerate(task.artifacts):
+            logger.info(f"📦 artifact[{i}].parts count: {len(artifact.parts)}")
+
+    if task.history:
+        logger.info(f"📦 history count: {len(task.history)}")
+        for i, msg in enumerate(task.history):
+            logger.info(f"📦 history[{i}].role: {msg.role}, parts: {len(msg.parts)}")
+            for j, part in enumerate(msg.parts):
+                logger.info(f"📦 history[{i}].parts[{j}].kind: {part.root.kind}")
+                if part.root.kind == "data":
+                    data_info = (
+                        list(part.root.data.keys())
+                        if isinstance(part.root.data, dict)
+                        else type(part.root.data)
+                    )
+                    logger.info(f"📦 history[{i}].parts[{j}].data keys: {data_info}")
+
+    # Extract response data
     result_data = {}
 
-    for message in task.history or []:
-        for part in message.parts:
-            # Check for TextPart with JSON response
-            if hasattr(part.root, "text") and part.root.text:
+    # Check task.history for function responses (where ADK puts tool results)
+    if task.history:
+        for msg in task.history:
+            for part in msg.parts:
+                if part.root.kind == "data" and isinstance(part.root.data, dict):
+                    # Check if this is a function response with 'response' key
+                    if "response" in part.root.data:
+                        response_value = part.root.data["response"]
+                        if isinstance(response_value, dict):
+                            result_data.update(response_value)
+                            keys = list(response_value.keys())
+                            logger.info(f"✅ Extracted from history function response: {keys}")
+
+    # Check task status message (secondary location)
+    if task.status and task.status.message:
+        for part in task.status.message.parts:
+            if part.root.kind == "text" and part.root.text:
                 try:
                     parsed = json.loads(part.root.text)
                     if isinstance(parsed, dict):
                         result_data.update(parsed)
-                        keys = list(parsed.keys())
-                        logger.debug(f"Parsed text response from remote agent: {keys}")
+                        logger.info(f"✅ Extracted from status.message text: {list(parsed.keys())}")
                 except (json.JSONDecodeError, ValueError):
-                    pass  # Not JSON, skip
+                    pass
 
-            # Check for function response in DataPart
-            if hasattr(part.root, "data") and part.root.data:
-                metadata = getattr(part, "metadata", None) or getattr(part.root, "metadata", None)
+            if part.root.kind == "data" and part.root.data:
+                if isinstance(part.root.data, dict):
+                    result_data.update(part.root.data)
+                    keys = list(part.root.data.keys())
+                    logger.info(f"✅ Extracted from status.message data: {keys}")
 
-                # ADK function responses have metadata.adk_type == 'function_response'
-                if metadata and metadata.get("adk_type") == "function_response":
-                    response_data = part.root.data.get("response", {})
-                    result_str = response_data.get("result", "")
+    # Check task artifacts
+    if task.artifacts:
+        for artifact in task.artifacts:
+            for part in artifact.parts:
+                if part.root.kind == "text" and part.root.text:
+                    try:
+                        parsed = json.loads(part.root.text)
+                        if isinstance(parsed, dict):
+                            result_data.update(parsed)
+                            logger.info(f"✅ Extracted from artifacts text: {list(parsed.keys())}")
+                    except (json.JSONDecodeError, ValueError):
+                        pass
 
-                    # Parse JSON result
-                    if result_str:
-                        try:
-                            parsed = json.loads(result_str)
-                            if isinstance(parsed, dict):
-                                result_data.update(parsed)
-                                logger.debug("Parsed function response from remote agent")
-                        except (json.JSONDecodeError, ValueError) as e:
-                            logger.warning(f"Failed to parse function response JSON: {e}")
+                if part.root.kind == "data" and part.root.data:
+                    if isinstance(part.root.data, dict):
+                        result_data.update(part.root.data)
+                        keys = list(part.root.data.keys())
+                        logger.info(f"✅ Extracted from artifacts data: {keys}")
 
     if not result_data:
-        history_len = len(task.history or [])
-        logger.warning(
-            f"No data extracted from remote agent response. Task history: {history_len} messages"
-        )
+        logger.error("❌ No data extracted from remote agent response")
 
     return result_data

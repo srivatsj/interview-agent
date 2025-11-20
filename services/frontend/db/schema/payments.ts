@@ -31,7 +31,6 @@ export const ap2Transactions = product.table("ap2_transactions", {
   stripeChargeId: text("stripe_charge_id").notNull().unique(),
 
   // AP2 protocol data (CartMandate and PaymentMandate structures)
-  // company and interview_type available in cartMandate JSON
   cartMandate: jsonb("cart_mandate"),
   paymentMandate: jsonb("payment_mandate"),
 

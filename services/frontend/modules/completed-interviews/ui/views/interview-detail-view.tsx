@@ -4,7 +4,21 @@ import { InterviewDetail } from "@/modules/completed-interviews/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, ArrowLeft } from "lucide-react";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  Calendar,
+  Clock,
+  ArrowLeft,
+  MessageSquare,
+  FileText,
+  PenTool,
+  DollarSign,
+} from "lucide-react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 
@@ -42,6 +56,15 @@ export const InterviewDetailView = ({
     });
   };
 
+  const formatPrice = (cents: number | null | undefined) => {
+    if (!cents) return "N/A";
+    const dollars = cents / 100;
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(dollars);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -76,6 +99,17 @@ export const InterviewDetailView = ({
               <Clock className="size-4" />
               <span>{formatDuration(interview.durationSeconds)}</span>
             </div>
+            {interview.payment && (
+              <div className="flex items-center gap-1">
+                <DollarSign className="size-4" />
+                <span>{formatPrice(interview.payment.amountCents)}</span>
+                {interview.payment.status !== "completed" && (
+                  <span className="text-xs text-amber-600 ml-1">
+                    ({interview.payment.status})
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <Badge
@@ -86,39 +120,80 @@ export const InterviewDetailView = ({
         </Badge>
       </div>
 
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column - Video & Canvas */}
-        <div className="space-y-6">
-          {/* Video Recording */}
-          {interview.videoUrl && (
+      {/* Tabs Layout */}
+      <Tabs defaultValue="feedback" className="w-full">
+        <TabsList>
+          <TabsTrigger value="feedback" className="gap-2">
+            <MessageSquare className="size-4" />
+            Feedback
+          </TabsTrigger>
+          <TabsTrigger value="artifacts" className="gap-2">
+            <PenTool className="size-4" />
+            Artifacts
+          </TabsTrigger>
+          <TabsTrigger value="transcription" className="gap-2">
+            <FileText className="size-4" />
+            Transcription
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Feedback Tab */}
+        <TabsContent value="feedback" className="mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Video Recording */}
+            {interview.videoUrl && (
+              <Card className="border-primary/20">
+                <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10">
+                  <CardTitle className="text-lg">
+                    Interview Recording
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <div className="w-full aspect-video bg-black rounded-lg overflow-hidden">
+                    <video
+                      src={interview.videoUrl}
+                      controls
+                      className="w-full h-full"
+                      preload="metadata"
+                    >
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Feedback Section */}
             <Card className="border-primary/20">
               <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10">
-                <CardTitle className="text-lg">Interview Recording</CardTitle>
+                <CardTitle className="text-lg">Interview Feedback</CardTitle>
               </CardHeader>
               <CardContent className="pt-6">
-                <div className="w-full aspect-video bg-black rounded-lg overflow-hidden">
-                  <video
-                    src={interview.videoUrl}
-                    controls
-                    className="w-full h-full"
-                    preload="metadata"
-                  >
-                    Your browser does not support the video tag.
-                  </video>
+                <div className="text-center py-12 text-muted-foreground space-y-3">
+                  <MessageSquare className="size-12 mx-auto opacity-50" />
+                  <p className="text-lg font-medium">
+                    Feedback Coming Soon
+                  </p>
+                  <p className="text-sm">
+                    Detailed interview feedback and performance analysis will be
+                    available here.
+                  </p>
                 </div>
               </CardContent>
             </Card>
-          )}
+          </div>
+        </TabsContent>
 
+        {/* Artifacts Tab */}
+        <TabsContent value="artifacts" className="mt-6">
           {/* Canvas State */}
-          {interview.canvasState && (
+          {interview.canvasState ? (
             <Card className="border-primary/20">
               <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10">
                 <CardTitle className="text-lg">Design Canvas</CardTitle>
               </CardHeader>
               <CardContent className="pt-6">
-                <div className="h-[500px]">
+                <div className="h-[600px]">
                   <DynamicReadonlyExcalidraw
                     elements={interview.canvasState.elements}
                     appState={interview.canvasState.appState}
@@ -126,13 +201,22 @@ export const InterviewDetailView = ({
                 </div>
               </CardContent>
             </Card>
+          ) : (
+            <Card className="border-primary/20">
+              <CardContent className="pt-6">
+                <div className="text-center py-12 text-muted-foreground space-y-3">
+                  <PenTool className="size-12 mx-auto opacity-50" />
+                  <p>No artifacts available for this interview.</p>
+                </div>
+              </CardContent>
+            </Card>
           )}
-        </div>
+        </TabsContent>
 
-        {/* Right Column - Transcription */}
-        <div>
-          <Card className="border-primary/20 h-full">
-            <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 sticky top-0 z-10">
+        {/* Transcription Tab */}
+        <TabsContent value="transcription" className="mt-6">
+          <Card className="border-primary/20">
+            <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10">
               <CardTitle className="text-lg">
                 Interview Transcript ({interview.transcriptions.length}{" "}
                 messages)
@@ -140,11 +224,12 @@ export const InterviewDetailView = ({
             </CardHeader>
             <CardContent className="pt-6">
               {interview.transcriptions.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-12 text-muted-foreground space-y-3">
+                  <FileText className="size-12 mx-auto opacity-50" />
                   <p>No transcription available for this interview.</p>
                 </div>
               ) : (
-                <div className="space-y-3 max-h-[calc(100vh-12rem)] overflow-y-auto pr-2">
+                <div className="space-y-3 max-h-[calc(100vh-16rem)] overflow-y-auto pr-2">
                   {interview.transcriptions.map((trans, index) => (
                     <div
                       key={`${trans.event_id}-${index}`}
@@ -182,8 +267,8 @@ export const InterviewDetailView = ({
               )}
             </CardContent>
           </Card>
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
