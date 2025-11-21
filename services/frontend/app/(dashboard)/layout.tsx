@@ -37,7 +37,7 @@ const menuItems = {
     {
       title: "START",
       icon: Play,
-      url: "/",
+      url: "/dashboard",
       badge: null,
       isActive: true,
     },
@@ -107,18 +107,18 @@ export default function DashboardLayout({
 
   return (
     <SidebarProvider defaultOpen>
-      <Sidebar collapsible="icon">
-        <SidebarHeader>
+      <Sidebar collapsible="icon" className="border-r border-border/50 bg-sidebar">
+        <SidebarHeader className="pb-4 pt-4">
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton size="lg" asChild>
-                <Link href="/">
-                  <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                    <Brain className="size-4" />
+              <SidebarMenuButton size="lg" asChild className="hover:bg-transparent">
+                <Link href="/dashboard">
+                  <div className="bg-gradient-to-br from-primary to-purple-600 text-primary-foreground flex aspect-square size-10 items-center justify-center rounded-xl shadow-lg shadow-primary/20">
+                    <Brain className="size-6" />
                   </div>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold text-white">InterviewOS</span>
-                    <span className="truncate text-xs text-white/80">
+                  <div className="grid flex-1 text-left text-sm leading-tight ml-2">
+                    <span className="truncate font-bold text-lg tracking-tight">InterviewOS</span>
+                    <span className="truncate text-xs text-muted-foreground font-medium">
                       AI Interview Prep
                     </span>
                   </div>
@@ -128,11 +128,11 @@ export default function DashboardLayout({
           </SidebarMenu>
         </SidebarHeader>
 
-        <SidebarContent>
+        <SidebarContent className="px-2">
           {/* START Section */}
           <SidebarGroup>
-            <SidebarGroupLabel className="text-xs font-bold uppercase text-white/90">
-              ⭐ START
+            <SidebarGroupLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70 mb-2">
+              Start
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -142,10 +142,15 @@ export default function DashboardLayout({
                       asChild
                       isActive={pathname === item.url}
                       tooltip={item.title}
-                      className="bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700 font-semibold shadow-md hover:shadow-lg transition-all"
+                      className={`
+                        transition-all duration-200 font-medium
+                        ${pathname === item.url
+                          ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90 hover:text-primary-foreground"
+                          : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-muted-foreground"}
+                      `}
                     >
                       <Link href={item.url}>
-                        <item.icon />
+                        <item.icon className={pathname === item.url ? "text-primary-foreground" : "text-muted-foreground"} />
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -155,12 +160,12 @@ export default function DashboardLayout({
             </SidebarGroupContent>
           </SidebarGroup>
 
-          <SidebarSeparator />
+          <SidebarSeparator className="my-4 opacity-50" />
 
           {/* MY PREP Section */}
           <SidebarGroup>
-            <SidebarGroupLabel className="text-xs font-bold uppercase">
-              📚 MY PREP
+            <SidebarGroupLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70 mb-2">
+              My Prep
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -170,6 +175,7 @@ export default function DashboardLayout({
                       asChild
                       isActive={pathname === item.url}
                       tooltip={item.title}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
                     >
                       <Link href={item.url}>
                         <item.icon />
@@ -182,12 +188,12 @@ export default function DashboardLayout({
             </SidebarGroupContent>
           </SidebarGroup>
 
-          <SidebarSeparator />
+          <SidebarSeparator className="my-4 opacity-50" />
 
           {/* INSIGHTS Section */}
           <SidebarGroup>
-            <SidebarGroupLabel className="text-xs font-bold uppercase">
-              📊 INSIGHTS
+            <SidebarGroupLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70 mb-2">
+              Insights
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -197,6 +203,7 @@ export default function DashboardLayout({
                       asChild
                       isActive={pathname === item.url}
                       tooltip={item.title}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
                     >
                       <Link href={item.url}>
                         <item.icon />
@@ -209,51 +216,56 @@ export default function DashboardLayout({
             </SidebarGroupContent>
           </SidebarGroup>
 
-          <SidebarSeparator />
-
-          {/* Stats Widget */}
-          <SidebarGroup className="bg-gradient-to-b from-[hsl(180,50%,35%)] to-[hsl(180,55%,25%)] pt-4 pb-4 -mx-2 px-4 rounded-lg shadow-inner">
-            <SidebarGroupLabel className="text-white font-semibold">YOUR STATS</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <div className="space-y-2 px-2">
-                <div className="flex items-center gap-2 text-sm text-white">
-                  <Clock className="size-4" />
-                  <span>9.5 hrs</span>
+          <div className="mt-auto p-2">
+            {/* Stats Widget */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-500/10 via-purple-500/10 to-fuchsia-500/10 border border-purple-500/20 p-4">
+              <div className="absolute top-0 right-0 -mt-4 -mr-4 h-24 w-24 rounded-full bg-purple-500/20 blur-2xl" />
+              <h4 className="relative text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-3">
+                Your Stats
+              </h4>
+              <div className="relative space-y-3">
+                <div className="flex items-center gap-2 text-sm text-foreground/80">
+                  <Clock className="size-4 text-purple-500" />
+                  <span className="font-medium">9.5 hrs</span>
+                  <span className="text-xs text-muted-foreground ml-auto">Practice</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-white">
-                  <BarChart3 className="size-4" />
-                  <span>12 completed</span>
+                <div className="flex items-center gap-2 text-sm text-foreground/80">
+                  <BarChart3 className="size-4 text-fuchsia-500" />
+                  <span className="font-medium">12</span>
+                  <span className="text-xs text-muted-foreground ml-auto">Completed</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-green-200 font-semibold">📈 +15% this week</span>
+                <div className="pt-2 border-t border-purple-500/10">
+                  <span className="text-xs font-medium text-green-600 dark:text-green-400 flex items-center gap-1">
+                    📈 +15% this week
+                  </span>
                 </div>
               </div>
-            </SidebarGroupContent>
-          </SidebarGroup>
+            </div>
+          </div>
 
         </SidebarContent>
 
-        <SidebarFooter>
+        <SidebarFooter className="p-4">
           <SidebarMenu>
             <SidebarMenuItem>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild suppressHydrationWarning>
                   <SidebarMenuButton
                     size="lg"
-                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground hover:bg-sidebar-accent/50 transition-colors"
                     suppressHydrationWarning
                   >
-                    <Avatar className="size-8 rounded-lg">
+                    <Avatar className="size-9 rounded-xl border border-border/50">
                       <AvatarImage
                         src={session?.user?.image || undefined}
                         alt={session?.user?.name || ""}
                       />
-                      <AvatarFallback className="rounded-lg">
+                      <AvatarFallback className="rounded-xl bg-gradient-to-br from-primary/10 to-purple-500/10 text-primary font-medium">
                         {getInitials(session?.user?.name)}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">
+                    <div className="grid flex-1 text-left text-sm leading-tight ml-1">
+                      <span className="truncate font-semibold text-foreground">
                         {session?.user?.name || "User"}
                       </span>
                       <span className="text-muted-foreground truncate text-xs">
@@ -263,24 +275,24 @@ export default function DashboardLayout({
                   </SidebarMenuButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
-                  className="w-56"
+                  className="w-56 rounded-xl border-border/50 shadow-xl bg-background/95 backdrop-blur-sm"
                   align="end"
                   side="top"
-                  sideOffset={4}
+                  sideOffset={8}
                 >
-                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuLabel className="text-muted-foreground">My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
+                  <DropdownMenuItem asChild className="cursor-pointer focus:bg-primary/10 focus:text-primary">
                     <Link href="/profile">Profile</Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
+                  <DropdownMenuItem asChild className="cursor-pointer focus:bg-primary/10 focus:text-primary">
                     <Link href="/settings">Settings</Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
+                  <DropdownMenuItem asChild className="cursor-pointer focus:bg-primary/10 focus:text-primary">
                     <Link href="/settings/payment">Payment Settings</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut}>
+                  <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:bg-red-50 focus:text-red-700 dark:focus:bg-red-950/50 dark:focus:text-red-400 cursor-pointer">
                     Sign Out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -290,14 +302,16 @@ export default function DashboardLayout({
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset>
-        <header className="bg-background/95 supports-backdrop-blur:bg-background/60 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
-          <SidebarTrigger className="-ml-1" />
+      <SidebarInset className="bg-background">
+        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b border-border/40 bg-background/80 px-6 backdrop-blur-xl transition-all">
+          <SidebarTrigger className="-ml-2 text-muted-foreground hover:text-foreground" />
           <div className="flex flex-1 items-center justify-between">
-            <h1 className="text-lg font-semibold">Dashboard</h1>
+            <h1 className="text-lg font-semibold tracking-tight text-foreground/90">Dashboard</h1>
           </div>
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4">{children}</div>
+        <div className="flex flex-1 flex-col gap-6 p-6 max-w-7xl mx-auto w-full animate-in-fade">
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

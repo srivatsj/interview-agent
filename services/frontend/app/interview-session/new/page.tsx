@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createInterview } from "@/modules/interview/actions";
 
-export default function NewInterviewPage() {
+function NewInterviewContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
@@ -73,5 +73,22 @@ export default function NewInterviewPage() {
         <p className="text-lg text-gray-600">Starting your interview...</p>
       </div>
     </div>
+  );
+}
+
+export default function NewInterviewPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="h-screen w-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-lg text-gray-600">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <NewInterviewContent />
+    </Suspense>
   );
 }

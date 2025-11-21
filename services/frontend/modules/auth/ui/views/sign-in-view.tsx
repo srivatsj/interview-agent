@@ -174,7 +174,7 @@ export const SignInView = () => {
                   Don&apos;t Have An Account?{" "}
                   <Link
                     href="/sign-up"
-                    className="underline underline-offset-4 hover:text-green-700"
+                    className="underline underline-offset-4 hover:text-primary"
                   >
                     Sign Up
                   </Link>
@@ -183,7 +183,7 @@ export const SignInView = () => {
             </form>
           </Form>
 
-          <div className="bg-radial from-teal-600 to-teal-800 relative hidden md:flex flex-col gap-y-4 items-center justify-center">
+          <div className="bg-gradient-to-br from-primary to-purple-600 relative hidden md:flex flex-col gap-y-4 items-center justify-center">
             <div className="p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20">
               <Brain className="h-12 w-12 text-white" />
             </div>

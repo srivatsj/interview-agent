@@ -212,7 +212,7 @@ export const SignUpView = () => {
                     type="button"
                     className="w-full"
                   >
-                    <FaGoogle/>
+                    <FaGoogle />
                   </Button>
                   <Button
                     disabled={pending}
@@ -221,14 +221,14 @@ export const SignUpView = () => {
                     type="button"
                     className="w-full"
                   >
-                    <FaGithub/>
+                    <FaGithub />
                   </Button>
                 </div>
                 <div className="text-center text-sm">
                   Already Have An Account?{" "}
                   <Link
                     href="/sign-in"
-                    className="underline underline-offset-4 hover:text-green-700"
+                    className="underline underline-offset-4 hover:text-primary"
                   >
                     Sign In
                   </Link>
@@ -237,7 +237,7 @@ export const SignUpView = () => {
             </form>
           </Form>
 
-          <div className="bg-radial from-teal-600 to-teal-800 relative hidden md:flex flex-col gap-y-4 items-center justify-center">
+          <div className="bg-gradient-to-br from-primary to-purple-600 relative hidden md:flex flex-col gap-y-4 items-center justify-center">
             <div className="p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20">
               <Brain className="h-12 w-12 text-white" />
             </div>
