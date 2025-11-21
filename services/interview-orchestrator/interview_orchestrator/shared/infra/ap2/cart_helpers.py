@@ -34,7 +34,13 @@ async def get_cart_mandate(
             logger.error("❌ Remote agent did not return cart_mandate")
             return None, "Error: Remote agent did not return cart_mandate"
 
-        price = cart_mandate["total_amount"]["value"]
+        # Extract price from AP2 structure
+        cart_contents = cart_mandate.get("contents", {})
+        payment_request = cart_contents.get("payment_request", {})
+        details = payment_request.get("details", {})
+        total = details.get("total", {})
+        price = total.get("amount", {}).get("value", 0.0)
+
         logger.info(f"✅ Cart received: ${price:.2f} for {company} {interview_type}")
         return cart_mandate, None
 

@@ -52,7 +52,12 @@ async def confirm_company_selection(
     if error:
         return error
 
-    price = cart_mandate["total_amount"]["value"]
+    # Extract price from AP2 structure
+    cart_contents = cart_mandate.get("contents", {})
+    payment_request = cart_contents.get("payment_request", {})
+    details = payment_request.get("details", {})
+    total = details.get("total", {})
+    price = total.get("amount", {}).get("value", 0.0)
 
     # Setup confirmation flow
     confirmation_id = str(uuid.uuid4())
@@ -93,9 +98,7 @@ async def confirm_company_selection(
             json.dumps(
                 {
                     "type": "state_update",
-                    "state": {
-                        "pending_confirmation": tool_context.state["pending_confirmation"]
-                    },
+                    "state": {"pending_confirmation": tool_context.state["pending_confirmation"]},
                 }
             )
         )

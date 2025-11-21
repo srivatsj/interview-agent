@@ -36,16 +36,12 @@ async def initialize_database():
         # Create a dummy session to ensure tables are created
         # This will create adk_sessions and adk_events tables
         dummy_session = await db_service.create_session(
-            app_name="interview_orchestrator",
-            user_id="init",
-            state={"initialized": True}
+            app_name="interview_orchestrator", user_id="init", state={"initialized": True}
         )
 
         # Delete the dummy session (requires app_name, user_id, and session_id)
         await db_service.delete_session(
-            app_name="interview_orchestrator",
-            user_id="init",
-            session_id=dummy_session.id
+            app_name="interview_orchestrator", user_id="init", session_id=dummy_session.id
         )
 
         logger.info("✅ ADK database tables initialized successfully")
@@ -53,6 +49,7 @@ async def initialize_database():
         logger.error(f"❌ Failed to initialize ADK database tables: {e}")
         # Don't raise - allow app to start even if DB init fails
         # Tables will be created on first session sync instead
+
 
 # Static files
 STATIC_DIR = Path("static")

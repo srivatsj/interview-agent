@@ -1,6 +1,5 @@
-"""A2A client for calling remote interview agents."""
+"""A2A client for calling remote interview agents - SIMPLIFIED."""
 
-import json
 import logging
 import uuid
 from typing import Any
@@ -12,6 +11,8 @@ from a2a.client.client_factory import ClientFactory
 from a2a.client.client_task_manager import ClientTaskManager
 from a2a.types import DataPart, Message, Part, Role, Task, TextPart
 
+logger = logging.getLogger(__name__)
+
 
 class RemoteAgentClient:
     """Client for calling remote agents via A2A protocol."""
@@ -20,7 +21,7 @@ class RemoteAgentClient:
         """Initialize client.
 
         Args:
-            base_url: Base URL of remote agent (e.g., http://localhost:10123)
+            base_url: Base URL of remote agent
             timeout: Request timeout in seconds
         """
         self.base_url = base_url
@@ -48,31 +49,31 @@ class RemoteAgentClient:
         text: str,
         data: dict[str, Any] | None = None,
         context_id: str | None = None,
+        task_id: str | None = None,
     ) -> Task:
-        """Send A2A message to remote agent.
+        """Send A2A message and return task.
 
         Args:
-            text: Text message to send
-            data: Optional data dictionary to include
-            context_id: Optional A2A context ID for conversation continuity
+            text: Text command
+            data: Optional data dictionary
+            context_id: Optional context ID for multi-turn
+            task_id: Optional task ID to continue existing task
 
         Returns:
-            A2A Task response from remote agent
+            A2A Task response
         """
-        # Build message parts
         parts = [Part(root=TextPart(text=text))]
         if data:
             parts.append(Part(root=DataPart(data=data)))
 
-        # Create message
         message = Message(
             message_id=uuid.uuid4().hex,
             parts=parts,
             role=Role.agent,
             context_id=context_id,
+            task_id=task_id,
         )
 
-        # Send and collect response
         client = await self._get_client()
         task_manager = ClientTaskManager()
 
@@ -93,119 +94,50 @@ async def call_remote_skill(
     text: str,
     data: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Convenience function to call remote agent skill.
+    """Call remote agent skill - SIMPLIFIED.
+
+    With custom executor, response is ALWAYS in task.artifacts as DataPart.
 
     Args:
         agent_url: Remote agent URL
-        text: Text instruction
-        data: Optional data to pass
+        text: Text command
+        data: Optional data dictionary
 
     Returns:
-        Response data from remote agent
+        Response data from artifacts
 
-    Example:
-        cart = await call_remote_skill(
-            "http://localhost:10123",
-            "Create cart for system design interview",
-            {"interview_type": "system_design"}
-        )
+    Raises:
+        RuntimeError: If no data found in response
     """
-    logger = logging.getLogger(__name__)
-
     client = RemoteAgentClient(agent_url)
     task = await client.send_message(text, data)
 
-    # DEBUG: Print entire task structure
-    logger.info(f"📦 Task ID: {task.id}")
-    logger.info(f"📦 Task status: {task.status.state if task.status else 'None'}")
-    has_msg = task.status.message is not None if task.status else False
-    logger.info(f"📦 Has status.message: {has_msg}")
-    logger.info(f"📦 Has artifacts: {task.artifacts is not None}")
-    logger.info(f"📦 Has history: {task.history is not None}")
+    return extract_data_from_task(task)
 
-    if task.status and task.status.message:
-        logger.info(f"📦 status.message.parts count: {len(task.status.message.parts)}")
-        for i, part in enumerate(task.status.message.parts):
-            logger.info(f"📦 status.message.parts[{i}].kind: {part.root.kind}")
-            if part.root.kind == "text":
-                text_preview = part.root.text[:200] if part.root.text else "None"
-                logger.info(f"📦 status.message.parts[{i}].text: {text_preview}")
-            if part.root.kind == "data":
-                logger.info(f"📦 status.message.parts[{i}].data: {part.root.data}")
 
-    if task.artifacts:
-        logger.info(f"📦 artifacts count: {len(task.artifacts)}")
-        for i, artifact in enumerate(task.artifacts):
-            logger.info(f"📦 artifact[{i}].parts count: {len(artifact.parts)}")
+def extract_data_from_task(task: Task) -> dict[str, Any]:
+    """Extract data from task artifacts.
 
-    if task.history:
-        logger.info(f"📦 history count: {len(task.history)}")
-        for i, msg in enumerate(task.history):
-            logger.info(f"📦 history[{i}].role: {msg.role}, parts: {len(msg.parts)}")
-            for j, part in enumerate(msg.parts):
-                logger.info(f"📦 history[{i}].parts[{j}].kind: {part.root.kind}")
-                if part.root.kind == "data":
-                    data_info = (
-                        list(part.root.data.keys())
-                        if isinstance(part.root.data, dict)
-                        else type(part.root.data)
-                    )
-                    logger.info(f"📦 history[{i}].parts[{j}].data keys: {data_info}")
+    Simple, clean extraction - custom executor always puts data in artifacts.
 
-    # Extract response data
-    result_data = {}
+    Args:
+        task: A2A Task response
 
-    # Check task.history for function responses (where ADK puts tool results)
-    if task.history:
-        for msg in task.history:
-            for part in msg.parts:
-                if part.root.kind == "data" and isinstance(part.root.data, dict):
-                    # Check if this is a function response with 'response' key
-                    if "response" in part.root.data:
-                        response_value = part.root.data["response"]
-                        if isinstance(response_value, dict):
-                            result_data.update(response_value)
-                            keys = list(response_value.keys())
-                            logger.info(f"✅ Extracted from history function response: {keys}")
+    Returns:
+        Data dictionary from first DataPart in artifacts
 
-    # Check task status message (secondary location)
-    if task.status and task.status.message:
-        for part in task.status.message.parts:
-            if part.root.kind == "text" and part.root.text:
-                try:
-                    parsed = json.loads(part.root.text)
-                    if isinstance(parsed, dict):
-                        result_data.update(parsed)
-                        logger.info(f"✅ Extracted from status.message text: {list(parsed.keys())}")
-                except (json.JSONDecodeError, ValueError):
-                    pass
+    Raises:
+        RuntimeError: If no data found
+    """
+    if not task.artifacts:
+        logger.error("❌ No artifacts in response")
+        raise RuntimeError("No artifacts in task response")
 
-            if part.root.kind == "data" and part.root.data:
-                if isinstance(part.root.data, dict):
-                    result_data.update(part.root.data)
-                    keys = list(part.root.data.keys())
-                    logger.info(f"✅ Extracted from status.message data: {keys}")
+    for artifact in task.artifacts:
+        for part in artifact.parts:
+            if part.root.kind == "data" and isinstance(part.root.data, dict):
+                logger.info(f"✅ Extracted data: {list(part.root.data.keys())}")
+                return part.root.data
 
-    # Check task artifacts
-    if task.artifacts:
-        for artifact in task.artifacts:
-            for part in artifact.parts:
-                if part.root.kind == "text" and part.root.text:
-                    try:
-                        parsed = json.loads(part.root.text)
-                        if isinstance(parsed, dict):
-                            result_data.update(parsed)
-                            logger.info(f"✅ Extracted from artifacts text: {list(parsed.keys())}")
-                    except (json.JSONDecodeError, ValueError):
-                        pass
-
-                if part.root.kind == "data" and part.root.data:
-                    if isinstance(part.root.data, dict):
-                        result_data.update(part.root.data)
-                        keys = list(part.root.data.keys())
-                        logger.info(f"✅ Extracted from artifacts data: {keys}")
-
-    if not result_data:
-        logger.error("❌ No data extracted from remote agent response")
-
-    return result_data
+    logger.error("❌ No data found in artifacts")
+    raise RuntimeError("No DataPart found in task artifacts")

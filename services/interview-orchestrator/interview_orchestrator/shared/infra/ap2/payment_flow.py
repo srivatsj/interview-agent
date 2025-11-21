@@ -1,13 +1,18 @@
-"""AP2 Payment Flow - Complete payment processing orchestration."""
+"""AP2 Payment Flow - AP2 compliant payment processing orchestration."""
 
 import hashlib
 import json
 import logging
 import os
 import uuid
-from datetime import datetime, timezone
 
 import httpx
+from ap2.types.mandate import PaymentMandate, PaymentMandateContents
+from ap2.types.payment_request import (
+    PaymentCurrencyAmount,
+    PaymentItem,
+    PaymentResponse,
+)
 
 from ...infra.a2a.remote_client import call_remote_skill
 
@@ -48,7 +53,7 @@ async def process_payment(
         # Step 2: Create PaymentMandate
         logger.info("📝 Creating payment mandate...")
         payment_mandate = _create_payment_mandate(
-            cart_mandate, payment_token, user_id, interview_id
+            cart_mandate, payment_token, user_id, interview_id, agent_url
         )
 
         # Step 3: Send PaymentMandate to merchant agent for charging
@@ -90,46 +95,76 @@ async def _get_payment_token(user_id: str, cart_mandate: dict) -> dict:
 
 
 def _create_payment_mandate(
-    cart_mandate: dict, payment_token: dict, user_id: str, interview_id: str
+    cart_mandate: dict,
+    payment_token: dict,
+    user_id: str,
+    interview_id: str,
+    agent_url: str,
 ) -> dict:
-    """Create PaymentMandate with cart hash and payment token.
+    """Create AP2 compliant PaymentMandate.
 
     Args:
-        cart_mandate: Cart mandate from merchant
+        cart_mandate: AP2 cart mandate from merchant
         payment_token: Payment token from Credentials Provider
         user_id: User ID
         interview_id: Interview ID
+        agent_url: Merchant agent URL
 
     Returns:
-        Payment mandate with cart hash and payment details
+        AP2 compliant payment mandate dict
     """
-    # Create hash from cart (excluding timestamp for consistency)
-    cart_data = {
-        "id": cart_mandate["id"],
-        "total_amount": cart_mandate["total_amount"],
-        "display_items": cart_mandate["display_items"],
-    }
-    cart_hash = hashlib.sha256(
-        json.dumps(cart_data, sort_keys=True).encode()
-    ).hexdigest()
+    # Extract cart contents
+    cart_contents = cart_mandate.get("contents", cart_mandate)
+    cart_id = cart_contents.get("id", "unknown")
 
-    return {
-        "payment_mandate_id": str(uuid.uuid4()),
-        "cart_mandate_id": cart_mandate["id"],
-        "cart_mandate": cart_mandate,  # Include full cart for transaction tracking
-        "cart_hash": cart_hash,
-        "payment_details_total": cart_mandate["total_amount"],
-        "merchant_agent": cart_mandate.get("merchant_agent", "unknown"),
-        "payment_response": {
-            "method_name": "CARD",
-            "details": {
-                "token": payment_token,
-                "user_id": user_id,
-                "interview_id": interview_id,
-            },
-        },
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
+    # Compute cart hash for verification (same as merchant signature)
+    cart_json = json.dumps(cart_contents, sort_keys=True)
+    cart_hash = hashlib.sha256(cart_json.encode()).hexdigest()
+
+    # Get total amount from cart
+    payment_request = cart_contents.get("payment_request", {})
+    details = payment_request.get("details", {})
+    total = details.get("total", {})
+
+    # Create AP2 compliant payment mandate
+    payment_mandate = PaymentMandate(
+        payment_mandate_contents=PaymentMandateContents(
+            payment_mandate_id=str(uuid.uuid4()),
+            payment_details_id=cart_id,
+            payment_details_total=PaymentItem(
+                label=total.get("label", "Total"),
+                amount=PaymentCurrencyAmount(
+                    currency=total.get("amount", {}).get("currency", "USD"),
+                    value=total.get("amount", {}).get("value", 0.0),
+                ),
+            ),
+            merchant_agent=agent_url,
+            payment_response=PaymentResponse(
+                request_id=str(uuid.uuid4()),
+                method_name="CARD",
+                details={
+                    "token": payment_token,
+                    "user_id": user_id,
+                    "interview_id": interview_id,
+                },
+            ),
+        )
+    )
+
+    # Return just the contents for frontend compatibility
+    # Frontend expects flat structure with additional fields
+    mandate_dict = payment_mandate.payment_mandate_contents.model_dump()
+    mandate_dict["cart_mandate_id"] = cart_id  # Frontend expects this field name
+    mandate_dict["cart_hash"] = cart_hash  # For verification
+
+    # Frontend expects payment_details_total as flat {currency, value}, not PaymentItem
+    if (
+        "payment_details_total" in mandate_dict
+        and "amount" in mandate_dict["payment_details_total"]
+    ):
+        mandate_dict["payment_details_total"] = mandate_dict["payment_details_total"]["amount"]
+
+    return mandate_dict
 
 
 async def _charge_via_merchant(agent_url: str, payment_mandate: dict) -> dict:

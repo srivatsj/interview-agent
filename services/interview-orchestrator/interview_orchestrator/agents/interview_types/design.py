@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 async def ask_remote_expert(query: str, tool_context: ToolContext) -> str:
     """Get feedback from company-specific remote expert agent.
 
-    Phase 1: Calls remote agent without payment verification.
-    Phase 2: Will add payment_proof verification.
+    Updated to work with new Google agent custom executor pattern.
+    Maintains conversation state via context_id for multi-turn.
 
     Args:
         query: Question or design problem to get feedback on
@@ -27,23 +27,35 @@ async def ask_remote_expert(query: str, tool_context: ToolContext) -> str:
     Returns:
         Expert feedback from remote agent
     """
-    # Get company from routing decision
     routing = tool_context.state.get("routing_decision", {})
     company = routing.get("company")
 
     if not company:
         return "No company selected. Cannot access remote expert."
 
-    # Get remote agent URL
     agent_url = AgentProviderRegistry.get_agent_url(company, "system_design")
     if not agent_url:
         return f"Remote expert not available for {company}."
 
-    # Call remote agent (Phase 1 - no payment proof yet)
     try:
-        response = await call_remote_skill(agent_url=agent_url, text=query, data={})
-        # Extract text response from remote agent
-        return response.get("message", str(response))
+        # Get session info for multi-turn conversation
+        interview_id = tool_context.state.get("interview_id", tool_context.invocation_id)
+        user_id = tool_context.state.get("user_id", "unknown")
+
+        # Call remote agent with conversation context
+        response = await call_remote_skill(
+            agent_url=agent_url,
+            text="Conduct interview",  # Command for Google agent executor
+            data={
+                "message": query,
+                "user_id": user_id,
+                "session_id": interview_id,  # Maintains conversation state
+            },
+        )
+
+        # Extract message from response (works with custom executor)
+        return response.get("message", "")
+
     except Exception as e:
         logger.error(f"Failed to call remote expert at {agent_url}: {e}")
         return f"Error contacting {company} expert. Continuing with general guidance."
