@@ -76,9 +76,9 @@ export const HomeView = ({ recentInterviews }: HomeViewProps) => {
 
       {/* Quick Start Tracks */}
       <div className="grid gap-6 md:grid-cols-2">
-        <Card className="group relative overflow-hidden border-border/50 bg-card/50 hover:bg-card/80 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 cursor-pointer">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-          <CardHeader>
+        <Card className="group relative overflow-hidden border-border/50 bg-card/50 hover:bg-card/80 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+          <CardHeader className="relative z-10">
             <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-300">
               <Layout className="size-6" />
             </div>
@@ -87,18 +87,18 @@ export const HomeView = ({ recentInterviews }: HomeViewProps) => {
               Architect scalable distributed systems. Practice with Google & Meta specific feedback.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="relative z-10">
             <Button variant="outline" className="w-full group-hover:bg-blue-500 group-hover:text-white group-hover:border-blue-500 transition-all" asChild>
-              <Link href="/interview-session/new?type=system-design">
+              <Link href="/interview-session/new?type=system_design">
                 Start Practice <ArrowRight className="ml-2 size-4" />
               </Link>
             </Button>
           </CardContent>
         </Card>
 
-        <Card className="group relative overflow-hidden border-border/50 bg-card/50 hover:bg-card/80 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 cursor-pointer">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-green-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-          <CardHeader>
+        <Card className="group relative overflow-hidden border-border/50 bg-card/50 hover:bg-card/80 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-green-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+          <CardHeader className="relative z-10">
             <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform duration-300">
               <Code className="size-6" />
             </div>
@@ -107,7 +107,7 @@ export const HomeView = ({ recentInterviews }: HomeViewProps) => {
               Solve algorithmic problems with real-time execution and complexity analysis.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="relative z-10">
             <Button variant="outline" className="w-full group-hover:bg-emerald-500 group-hover:text-white group-hover:border-emerald-500 transition-all" asChild>
               <Link href="/interview-session/new?type=coding">
                 Start Practice <ArrowRight className="ml-2 size-4" />

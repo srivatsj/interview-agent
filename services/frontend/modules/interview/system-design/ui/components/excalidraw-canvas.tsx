@@ -12,7 +12,7 @@ interface ExcalidrawCanvasProps {
 
 export function ExcalidrawCanvas({ onExcalidrawAPIInit }: ExcalidrawCanvasProps) {
   return (
-    <div style={{ height: '100%', width: '100%' }}>
+    <div className="h-full w-full">
       <ExcalidrawWrapper onInit={onExcalidrawAPIInit} />
     </div>
   );

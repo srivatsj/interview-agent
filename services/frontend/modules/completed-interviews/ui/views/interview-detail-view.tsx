@@ -22,6 +22,8 @@ import {
   Brain,
   User,
   Bot,
+  Layout,
+  Code,
 } from "lucide-react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -31,6 +33,15 @@ const DynamicReadonlyExcalidraw = dynamic(
   () =>
     import("../components/readonly-excalidraw").then(
       (mod) => mod.ReadonlyExcalidraw,
+    ),
+  { ssr: false },
+);
+
+// Dynamically import the code editor for coding interviews
+const DynamicCodeEditor = dynamic(
+  () =>
+    import("@/modules/interview/coding/ui/components/code-editor-canvas").then(
+      (mod) => mod.CodeEditorCanvas,
     ),
   { ssr: false },
 );
@@ -131,24 +142,24 @@ export const InterviewDetailView = ({
 
       {/* Tabs Layout */}
       <Tabs defaultValue="feedback" className="w-full">
-        <TabsList className="w-full justify-start h-auto p-1 bg-muted/40 space-x-2 rounded-xl mb-6">
+        <TabsList className="w-full justify-start h-auto p-1 bg-secondary/20 space-x-2 rounded-xl mb-6">
           <TabsTrigger
             value="feedback"
-            className="gap-2 rounded-lg px-4 py-2.5 font-medium text-muted-foreground data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all"
+            className="gap-2 rounded-lg px-4 py-2.5 font-medium text-muted-foreground data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground data-[state=active]:shadow-sm transition-all"
           >
             <MessageSquare className="size-4" />
             Feedback
           </TabsTrigger>
           <TabsTrigger
             value="artifacts"
-            className="gap-2 rounded-lg px-4 py-2.5 font-medium text-muted-foreground data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all"
+            className="gap-2 rounded-lg px-4 py-2.5 font-medium text-muted-foreground data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground data-[state=active]:shadow-sm transition-all"
           >
             <PenTool className="size-4" />
             Artifacts
           </TabsTrigger>
           <TabsTrigger
             value="transcription"
-            className="gap-2 rounded-lg px-4 py-2.5 font-medium text-muted-foreground data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all"
+            className="gap-2 rounded-lg px-4 py-2.5 font-medium text-muted-foreground data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground data-[state=active]:shadow-sm transition-all"
           >
             <FileText className="size-4" />
             Transcription
@@ -161,12 +172,12 @@ export const InterviewDetailView = ({
             {/* Video Recording */}
             {interview.videoUrl && (
               <Card className="overflow-hidden border-border/50 shadow-sm h-full flex flex-col">
-                <CardHeader className="bg-muted/30 border-b border-border/50 pb-4 flex-shrink-0">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                <CardHeader className="bg-muted/30 border-b border-border/50 py-4 flex-shrink-0">
+                  <CardTitle className="text-lg flex items-center gap-3">
+                    <div className="size-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
                       <Play className="size-4" />
                     </div>
-                    Recording
+                    <span className="leading-none">Recording</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0 flex-1 bg-black relative">
@@ -184,12 +195,12 @@ export const InterviewDetailView = ({
 
             {/* Feedback Section */}
             <Card className="border-border/50 shadow-sm h-full flex flex-col">
-              <CardHeader className="bg-muted/30 border-b border-border/50 pb-4 flex-shrink-0">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+              <CardHeader className="bg-muted/30 border-b border-border/50 py-4 flex-shrink-0">
+                <CardTitle className="text-lg flex items-center gap-3">
+                  <div className="size-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
                     <MessageSquare className="size-4" />
                   </div>
-                  Analysis
+                  <span className="leading-none">Analysis</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 flex items-center justify-center flex-1">
@@ -213,30 +224,146 @@ export const InterviewDetailView = ({
         <TabsContent value="artifacts">
           {/* Canvas State */}
           {interview.canvasState ? (
-            <Card className="overflow-hidden border-border/50 shadow-sm">
-              <CardHeader className="bg-muted/30 border-b border-border/50 pb-4">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                    <PenTool className="size-4" />
-                  </div>
-                  Whiteboard
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="h-[700px] w-full">
-                  <DynamicReadonlyExcalidraw
-                    elements={interview.canvasState.elements}
-                    appState={interview.canvasState.appState}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
+            (() => {
+              const elements = interview.canvasState.elements as Array<{
+                type: string;
+                code?: string;
+                language?: string;
+                elements?: unknown[];
+              }>;
+
+              const excalidrawElement = elements.find((el) => el.type === "excalidraw");
+              const codeElement = elements.find((el) => el.type === "code");
+
+              const hasWhiteboard = !!excalidrawElement;
+              const hasCode = !!codeElement;
+
+              // If both exist, show tabs
+              if (hasWhiteboard && hasCode) {
+                return (
+                  <Tabs defaultValue="whiteboard" className="w-full">
+                    <TabsList className="w-full justify-start h-auto p-1 bg-secondary/20 space-x-2 rounded-xl mb-6">
+                      <TabsTrigger
+                        value="whiteboard"
+                        className="gap-2 rounded-lg px-4 py-2.5 font-medium text-muted-foreground data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground data-[state=active]:shadow-sm transition-all"
+                      >
+                        <Layout className="size-4" />
+                        Whiteboard
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="code"
+                        className="gap-2 rounded-lg px-4 py-2.5 font-medium text-muted-foreground data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground data-[state=active]:shadow-sm transition-all"
+                      >
+                        <Code className="size-4" />
+                        Code Editor
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="whiteboard">
+                      <Card className="overflow-hidden border-border/50 shadow-sm">
+                        <CardHeader className="bg-muted/30 border-b border-border/50 py-4">
+                          <CardTitle className="text-lg flex items-center gap-3">
+                            <div className="size-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                              <PenTool className="size-4" />
+                            </div>
+                            <span className="leading-none">Whiteboard</span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          <div className="h-[700px] w-full">
+                            <DynamicReadonlyExcalidraw
+                              elements={excalidrawElement.elements || []}
+                              appState={interview.canvasState.appState?.excalidraw || {}}
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </TabsContent>
+
+                    <TabsContent value="code">
+                      <Card className="overflow-hidden border-border/50 shadow-sm">
+                        <CardHeader className="bg-muted/30 border-b border-border/50 py-4">
+                          <CardTitle className="text-lg flex items-center gap-3">
+                            <div className="size-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                              <Code className="size-4" />
+                            </div>
+                            <span className="leading-none">Code Solution</span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          <div className="h-[700px] w-full">
+                            <DynamicCodeEditor
+                              initialCode={codeElement.code || "// No code saved"}
+                              language={codeElement.language || "javascript"}
+                              readOnly={true}
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </TabsContent>
+                  </Tabs>
+                );
+              }
+
+              // Show only whiteboard if it exists
+              if (hasWhiteboard) {
+                return (
+                  <Card className="overflow-hidden border-border/50 shadow-sm">
+                    <CardHeader className="bg-muted/30 border-b border-border/50 py-4">
+                      <CardTitle className="text-lg flex items-center gap-3">
+                        <div className="size-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                          <PenTool className="size-4" />
+                        </div>
+                        <span className="leading-none">Whiteboard</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="h-[700px] w-full">
+                        <DynamicReadonlyExcalidraw
+                          elements={excalidrawElement.elements || []}
+                          appState={interview.canvasState.appState?.excalidraw || {}}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              }
+
+              // Show only code if it exists
+              if (hasCode) {
+                return (
+                  <Card className="overflow-hidden border-border/50 shadow-sm">
+                    <CardHeader className="bg-muted/30 border-b border-border/50 py-4">
+                      <CardTitle className="text-lg flex items-center gap-3">
+                        <div className="size-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                          <Code className="size-4" />
+                        </div>
+                        <span className="leading-none">Code Solution</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="h-[700px] w-full">
+                        <DynamicCodeEditor
+                          initialCode={codeElement.code || "// No code saved"}
+                          language={codeElement.language || "javascript"}
+                          readOnly={true}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              }
+
+              return null;
+            })()
+          ) : null}
+
+          {!interview.canvasState && (
             <Card className="border-dashed">
               <CardContent className="pt-6">
                 <div className="text-center py-12 text-muted-foreground space-y-3">
                   <PenTool className="size-12 mx-auto opacity-20" />
-                  <p>No whiteboard artifacts for this session.</p>
+                  <p>No artifacts for this session.</p>
                 </div>
               </CardContent>
             </Card>
@@ -246,12 +373,12 @@ export const InterviewDetailView = ({
         {/* Transcription Tab */}
         <TabsContent value="transcription">
           <Card className="overflow-hidden border-border/50 shadow-sm">
-            <CardHeader className="bg-muted/30 border-b border-border/50 pb-4">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+            <CardHeader className="bg-muted/30 border-b border-border/50 py-4">
+              <CardTitle className="text-lg flex items-center gap-3">
+                <div className="size-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
                   <FileText className="size-4" />
                 </div>
-                Transcript
+                <span className="leading-none">Transcript</span>
                 <Badge variant="secondary" className="ml-2 text-xs font-normal">
                   {interview.transcriptions.length} messages
                 </Badge>

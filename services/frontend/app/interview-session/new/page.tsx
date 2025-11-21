@@ -28,12 +28,8 @@ function NewInterviewContent() {
         // Create interview record using Server Action
         const interview = await createInterview({ company, role, level, type });
 
-        // Redirect to the actual interview page with the real ID
-        if (type === "system_design") {
-          router.replace(`/interview-session/${interview.id}/system-design`);
-        } else {
-          router.replace(`/interview-session/${interview.id}/coding`);
-        }
+        // Redirect to the unified interview page
+        router.replace(`/interview-session/${interview.id}`);
       } catch (err) {
         console.error("Failed to create interview:", err);
         setError(

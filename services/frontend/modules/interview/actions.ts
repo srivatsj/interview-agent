@@ -111,3 +111,31 @@ export async function updateInterview(params: UpdateInterviewInput) {
     throw new Error("Failed to update interview");
   }
 }
+
+export async function getInterviewWithCanvas(interviewId: string) {
+  try {
+    const [interview] = await db
+      .select()
+      .from(interviews)
+      .where(eq(interviews.id, interviewId))
+      .limit(1);
+
+    if (!interview) {
+      return null;
+    }
+
+    const [canvas] = await db
+      .select()
+      .from(canvasState)
+      .where(eq(canvasState.interviewId, interviewId))
+      .limit(1);
+
+    return {
+      ...interview,
+      canvasState: canvas || null,
+    };
+  } catch (error) {
+    console.error("Failed to get interview with canvas:", error);
+    return null;
+  }
+}

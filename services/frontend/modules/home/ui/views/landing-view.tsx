@@ -118,7 +118,7 @@ export const LandingView = () => {
                                     <span className="text-primary">Top Tech Companies</span>
                                 </h2>
                                 <p className="text-lg text-muted-foreground">
-                                    Our AI agents are trained on specific evaluation rubrics from major tech companies. Whether you're aiming for Google, Meta, or Amazon, we've got you covered.
+                                    Our AI agents are trained on specific evaluation rubrics from major tech companies. Whether you&apos;re aiming for Google, Meta, or Amazon, we&apos;ve got you covered.
                                 </p>
                                 <ul className="space-y-4">
                                     {[

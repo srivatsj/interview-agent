@@ -6,9 +6,16 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { InterviewHeader } from "@/modules/interview/common/ui/components/interview-header";
 import { VideoPanel } from "@/modules/interview/common/ui/components/video-panel";
-import { ExcalidrawCanvas } from "../components/excalidraw-canvas";
+import { ExcalidrawCanvas } from "@/modules/interview/system-design/ui/components/excalidraw-canvas";
+import { CodeEditorCanvas } from "@/modules/interview/coding/ui/components/code-editor-canvas";
 import { useTimer } from "@/modules/interview/common/hooks/use-timer";
 import {
   useWebSocket,
@@ -27,16 +34,22 @@ import { useCanvasStream } from "@/modules/interview/common/hooks/use-canvas-str
 import { useCompositeVideo } from "@/modules/interview/common/hooks/use-composite-video";
 import { useRouter, useParams } from "next/navigation";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-import { validateInterviewExists, updateInterview } from "@/modules/interview/actions";
+import type { editor } from "monaco-editor";
+import { updateInterview, getInterviewWithCanvas } from "@/modules/interview/actions";
 import { authClient } from "@/lib/auth-client";
+import { Layout, Code } from "lucide-react";
 
-export function SystemDesignInterview() {
+export function UnifiedInterview() {
   const router = useRouter();
   const params = useParams();
-  const [excalidrawAPI, setExcalidrawAPI] =
-    useState<ExcalidrawImperativeAPI | null>(null);
+  const [excalidrawAPI, setExcalidrawAPI] = useState<ExcalidrawImperativeAPI | null>(null);
+  const [editorInstance, setEditorInstance] = useState<editor.IStandaloneCodeEditor | null>(null);
   const [isEndingInterview, setIsEndingInterview] = useState(false);
   const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("whiteboard");
+  const [initialCode, setInitialCode] = useState<string | undefined>(undefined);
+  const [language, setLanguage] = useState<string>("javascript");
+  const [isReadOnly, setIsReadOnly] = useState(false);
 
   // Get interview ID from URL params
   const interviewId = params.interviewId as string;
@@ -47,16 +60,14 @@ export function SystemDesignInterview() {
 
   // Get authenticated user for session persistence
   const { data: session } = authClient.useSession();
-  const userId = session?.user?.id || interviewId; // Fallback to interviewId if no auth
+  const userId = session?.user?.id || interviewId;
 
   const { formattedTime } = useTimer();
 
   // Initialize AudioWorklet player
-  const { initializePlayer, playAudio, flush, getAudioStream } =
-    useAudioWorkletPlayer();
+  const { initializePlayer, playAudio, flush, getAudioStream } = useAudioWorkletPlayer();
 
-  // WebSocket connection - CRITICAL: is_audio=true for audio mode
-  // Pass both user_id and interview_id for session management
+  // WebSocket connection
   const websocketUrl = useMemo(
     () => `ws://localhost:8000/ws/${userId}?interview_id=${interviewId}&is_audio=true`,
     [userId, interviewId],
@@ -65,21 +76,17 @@ export function SystemDesignInterview() {
   // Handle incoming structured messages from WebSocket
   const handleBaseAgentEvent = useCallback(
     (event: StructuredAgentEvent) => {
-      // Handle interruption - flush audio player
       if (event.interrupted) {
         flush();
         return;
       }
 
-      // Handle turn completion
       if (event.turn_complete) {
         return;
       }
 
-      // Process all parts in the event
       for (const part of event.parts) {
         if (part.type === "audio/pcm" && typeof part.data === "string") {
-          // Play PCM audio using AudioWorklet
           playAudio(part.data);
         }
       }
@@ -90,7 +97,7 @@ export function SystemDesignInterview() {
   // WebSocket sendMessage ref for confirmation hook
   const sendMessageRef = useRef<((message: WebSocketMessage) => boolean) | null>(null);
 
-  // Confirmation hook - handles state updates for payment confirmation
+  // Confirmation hook
   const {
     confirmationRequest,
     isConfirmationOpen,
@@ -101,14 +108,13 @@ export function SystemDesignInterview() {
     sendMessage: sendMessageRef.current || undefined,
   });
 
-  // WebSocket configuration - handles both events and state updates
+  // WebSocket configuration
   const { isConnected, sendMessage, connect, disconnect } = useWebSocket({
     url: websocketUrl,
-    onMessage: handleBaseAgentEvent, // Handle agent events (audio, etc.)
-    onStateUpdate: handleStateUpdate, // Handle state updates (payment confirmations)
+    onMessage: handleBaseAgentEvent,
+    onStateUpdate: handleStateUpdate,
     onConnect: () => {
       isConnectedRef.current = true;
-      // Initialize audio after successful connection
       initializeAudio();
     },
     onDisconnect: () => {
@@ -118,12 +124,11 @@ export function SystemDesignInterview() {
     autoConnect: false,
   });
 
-  // Update sendMessage ref for confirmation hook
   useEffect(() => {
     sendMessageRef.current = sendMessage;
   }, [sendMessage]);
 
-  // Send audio data to WebSocket (PCM format)
+  // Send audio data to WebSocket
   const handleAudioData = useCallback(
     (base64Data: string) => {
       if (!isConnectedRef.current) {
@@ -138,7 +143,7 @@ export function SystemDesignInterview() {
     [sendMessage],
   );
 
-  // Handle speech start (for barge-in)
+  // Handle speech start
   const handleSpeechStart = useCallback(() => {
     flush();
   }, [flush]);
@@ -162,7 +167,7 @@ export function SystemDesignInterview() {
   // Canvas stream for recording
   const canvasStream = useCanvasStream(excalidrawAPI);
 
-  // Composite video stream (canvas + webcam picture-in-picture)
+  // Composite video stream
   const compositeVideoStream = useCompositeVideo({
     canvasStream,
     webcamStream,
@@ -171,7 +176,7 @@ export function SystemDesignInterview() {
 
   const mixedStreamRef = useRef<MediaStream | null>(null);
 
-  // Canvas screenshot hook - sends screenshots to orchestrator every 30s
+  // Canvas screenshot hook
   const blobToBase64 = useCallback((blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -201,45 +206,74 @@ export function SystemDesignInterview() {
     [blobToBase64, sendMessage],
   );
 
-  // Initialize canvas screenshot hook (30s interval by default)
   useCanvasScreenshot(excalidrawAPI, {
     onScreenshot: handleCanvasScreenshot,
-    intervalMs: 30000, // 30 seconds
+    intervalMs: 30000,
   });
 
-  // Handle ending interview - CRITICAL: Must complete upload before navigation
+  // Handle ending interview
   const handleEndInterview = useCallback(async () => {
     setIsEndingInterview(true);
 
     try {
-      // 1. Disconnect WebSocket - backend auto-syncs to database on disconnect
-      console.log("🔌 Disconnecting WebSocket (backend will auto-sync session to DB)...");
+      console.log("🔌 Disconnecting WebSocket...");
       disconnect();
 
-      // 2. Stop screen recording and get blob
       const recordingBlob = await stopScreenRecording();
 
       if (recordingBlob) {
-        // 3. Upload recording - WAIT for completion
         await uploadRecording(interviewId, recordingBlob);
       }
 
-      // 4. Save canvas state if available
+      // Save both canvas states
+      const canvasStateData: {
+        elements: unknown[];
+        appState?: Record<string, unknown>;
+      } = {
+        elements: [],
+        appState: {},
+      };
+
+      // Save Excalidraw state
       if (excalidrawAPI) {
         try {
           const elements = [...excalidrawAPI.getSceneElements()];
           const appState = excalidrawAPI.getAppState();
-          await updateInterview({
-            interviewId,
-            canvasState: { elements, appState },
+          canvasStateData.elements.push({
+            type: "excalidraw",
+            elements,
           });
+          if (!canvasStateData.appState) canvasStateData.appState = {};
+          canvasStateData.appState.excalidraw = appState;
         } catch (error) {
-          console.error("Failed to save canvas state:", error);
-          // Don't block navigation on canvas save failure
+          console.error("Failed to save excalidraw state:", error);
         }
       }
 
-      // 5. Cleanup audio/video resources
+      // Save code editor state
+      if (editorInstance) {
+        try {
+          const code = editorInstance.getValue();
+          const editorLanguage = editorInstance.getModel()?.getLanguageId() || "javascript";
+          canvasStateData.elements.push({
+            type: "code",
+            code,
+            language: editorLanguage,
+          });
+          if (!canvasStateData.appState) canvasStateData.appState = {};
+          canvasStateData.appState.codeLanguage = editorLanguage;
+        } catch (error) {
+          console.error("Failed to save code state:", error);
+        }
+      }
+
+      // Update interview with canvas state
+      await updateInterview({
+        interviewId,
+        canvasState: canvasStateData,
+      });
+
+      // Cleanup resources
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       }
@@ -250,7 +284,6 @@ export function SystemDesignInterview() {
       cleanupMixer();
       cleanupRecorder();
 
-      // 6. Navigate to home AFTER upload completes
       router.push("/");
     } catch (error) {
       console.error("Failed to end interview:", error);
@@ -263,6 +296,7 @@ export function SystemDesignInterview() {
     stopScreenRecording,
     uploadRecording,
     excalidrawAPI,
+    editorInstance,
     stopRecording,
     cleanupMixer,
     cleanupRecorder,
@@ -270,15 +304,13 @@ export function SystemDesignInterview() {
     webcamStream,
   ]);
 
-  // Initialize audio (player and recorder)
+  // Initialize audio
   const initializeAudio = useCallback(async () => {
     if (hasInitializedAudioRef.current) return;
 
     try {
-      // Initialize audio player first
       await initializePlayer();
 
-      // Get microphone AND webcam stream (both audio and video)
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: {
@@ -289,15 +321,12 @@ export function SystemDesignInterview() {
       });
 
       mediaStreamRef.current = stream;
-      setWebcamStream(stream); // Set webcam stream for composite video
+      setWebcamStream(stream);
 
-      // Start AudioWorklet recorder (uses audio tracks only)
       await startRecording(stream);
 
-      // Get AI audio stream from player
       const agentAudioStream = getAudioStream();
 
-      // Create mixed audio stream for recording (candidate mic + agent audio)
       const mixedStream = await createMixedStream(
         stream,
         agentAudioStream || undefined,
@@ -305,8 +334,8 @@ export function SystemDesignInterview() {
       mixedStreamRef.current = mixedStream;
 
       hasInitializedAudioRef.current = true;
-    } catch (error) {
-      console.error("Failed to initialize audio:", error);
+    } catch {
+      console.error("Failed to initialize audio");
     }
   }, [
     initializePlayer,
@@ -342,7 +371,7 @@ export function SystemDesignInterview() {
     startRecordingAsync();
   }, [compositeVideoStream, isRecording, startScreenRecording]);
 
-  // Initiate connection when component mounts - EXACTLY like original pattern
+  // Initialize interview
   useEffect(() => {
     let mounted = true;
 
@@ -355,16 +384,34 @@ export function SystemDesignInterview() {
         return;
       }
 
-      // Validate interview exists in database
-      const exists = await validateInterviewExists(interviewId);
-      if (!exists) {
+      const interviewData = await getInterviewWithCanvas(interviewId);
+      if (!interviewData) {
         console.error(`❌ Interview not found: ${interviewId}`);
         alert("Invalid interview ID. Please start a new interview.");
         router.push("/");
         return;
       }
 
-      if (!hasConnectedRef.current && mounted) {
+      const isCompleted = interviewData.status === "completed";
+      setIsReadOnly(isCompleted);
+
+      // Load saved states if available
+      if (interviewData.canvasState) {
+        const elements = interviewData.canvasState.elements as Array<{
+          type: string;
+          code?: string;
+          language?: string;
+          elements?: unknown[];
+        }>;
+
+        const codeElement = elements.find((el) => el.type === "code");
+        if (codeElement && codeElement.code) {
+          setInitialCode(codeElement.code);
+          setLanguage(codeElement.language || "javascript");
+        }
+      }
+
+      if (!isCompleted && !hasConnectedRef.current && mounted) {
         hasConnectedRef.current = true;
         connect();
       }
@@ -374,14 +421,13 @@ export function SystemDesignInterview() {
 
     return () => {
       mounted = false;
-      // Prevent duplicate connections on remount
       if (hasConnectedRef.current) {
         disconnect();
         hasConnectedRef.current = false;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // ✅ EMPTY DEPS - exactly like original!
+  }, []);
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden">
@@ -409,7 +455,6 @@ export function SystemDesignInterview() {
         </div>
       )}
 
-      {/* ADK Confirmation Dialog */}
       <ConfirmationDialog
         open={isConfirmationOpen}
         request={confirmationRequest}
@@ -426,7 +471,43 @@ export function SystemDesignInterview() {
           minSize={50}
           className="overflow-hidden"
         >
-          <ExcalidrawCanvas onExcalidrawAPIInit={setExcalidrawAPI} />
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+            <TabsList className="w-full justify-start h-auto p-1 bg-secondary/20 rounded-none border-b flex-shrink-0">
+              <TabsTrigger
+                value="whiteboard"
+                className="gap-2 rounded-md px-4 py-2 font-medium text-muted-foreground data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground data-[state=active]:shadow-sm"
+              >
+                <Layout className="size-4" />
+                Whiteboard
+              </TabsTrigger>
+              <TabsTrigger
+                value="code"
+                className="gap-2 rounded-md px-4 py-2 font-medium text-muted-foreground data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground data-[state=active]:shadow-sm"
+              >
+                <Code className="size-4" />
+                Code Editor
+              </TabsTrigger>
+            </TabsList>
+
+            <div className="flex-1 relative">
+              <TabsContent value="whiteboard" className="absolute inset-0 m-0 p-0" forceMount>
+                <div className={activeTab !== "whiteboard" ? "hidden" : "h-full w-full"}>
+                  <ExcalidrawCanvas onExcalidrawAPIInit={setExcalidrawAPI} />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="code" className="absolute inset-0 m-0 p-0" forceMount>
+                <div className={activeTab !== "code" ? "hidden" : "h-full w-full"}>
+                  <CodeEditorCanvas
+                    onEditorInit={setEditorInstance}
+                    initialCode={initialCode}
+                    language={language}
+                    readOnly={isReadOnly}
+                  />
+                </div>
+              </TabsContent>
+            </div>
+          </Tabs>
         </ResizablePanel>
 
         <ResizableHandle className="w-1 bg-slate-200 hover:bg-slate-300" />

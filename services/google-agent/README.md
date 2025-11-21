@@ -64,7 +64,7 @@ Using `uv` (recommended):
 cd services/google-agent
 uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-uv pip install -e .
+uv pip install -e . --no-verify-hashes
 ```
 
 Or using `pip`:
