@@ -24,10 +24,10 @@ root_agent (interview_coordinator)
 │   ├── coding_agent     # For coding interviews
 │   └── design_agent     # For system design interviews
 │       └── Remote A2A Agents (optional)
-│           ├── google_agent (port 8003)
-│           ├── meta_agent (port 8004)
-│           ├── amazon_agent (port 8001)
-│           └── uber_agent (port 8002)
+│           ├── google_agent (port 8001)
+│           ├── meta_agent (port 8002)
+│           ├── amazon_agent (port 8003)
+│           └── uber_agent (port 8004)
 └── closing_agent         # Interview wrap-up
 ```
 
@@ -386,10 +386,10 @@ Track:
 1. Start remote agents (optional):
    ```bash
    # Terminal 1: Google Agent
-   cd services/google-agent && uvicorn agent:a2a_app --port 8003
+   cd services/google-agent && uvicorn agent:a2a_app --port 8001
 
    # Terminal 2: Meta Agent
-   cd services/meta-agent && uvicorn agent:a2a_app --port 8004
+   cd services/meta-agent && uvicorn agent:a2a_app --port 8002
    ```
 
 2. Start orchestrator:

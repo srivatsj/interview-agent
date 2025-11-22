@@ -127,7 +127,7 @@ Use these tools to help evaluate social media system designs.""",
 # Define custom agent card with 2 explicit skills
 agent_card = AgentCard(
     name="meta_system_design_agent",
-    url="http://localhost:8004",
+    url="http://localhost:8002",
     description=(
         "Meta system design interview expert for social graphs and performance optimization"
     ),
@@ -159,4 +159,4 @@ agent_card = AgentCard(
 )
 
 # Expose agent via A2A protocol with custom agent card
-a2a_app = to_a2a(root_agent, port=8004, agent_card=agent_card)
+a2a_app = to_a2a(root_agent, port=8002, agent_card=agent_card)

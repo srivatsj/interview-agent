@@ -1,171 +1,317 @@
 # Google Agent
 
-A Google system design interview agent exposed via the A2A (Agent-to-Agent) protocol. This agent provides specialized skills for evaluating massive-scale distributed systems.
+A2A-compliant agent providing Google-style system design interviews and payment processing (AP2). Combines deterministic payment tools with LLM-based interview conductor.
 
-## Description
-
-The Google Agent is a specialized system design interview expert that helps evaluate candidates on:
-- **Massive Scale Analysis**: Calculating requirements for billion-user systems
-- **Distributed Systems Design**: Recommending consistency models, replication strategies, and sharding patterns
-
-## Folder Structure
+## Architecture
 
 ```
-google-agent/
-├── __init__.py              # Package initialization
-├── agent.py                 # Main agent implementation with skills
-├── pyproject.toml          # Project dependencies and configuration
-├── .env.example            # Environment variable template
-├── README.md               # This file (human-readable documentation)
-└── AGENTS.md              # Agent documentation (LLM-readable)
+Orchestrator (A2A Client)
+         ↓
+    HTTP/JSON (A2A Protocol)
+         ↓
+Google Agent (port 8001)
+    ├── Custom Executor (routing)
+    ├── Payment Tools (deterministic)
+    │   ├── create_cart (AP2 cart mandate)
+    │   └── process_payment (Stripe via frontend)
+    └── Interview Tool (LLM-based)
+        └── conduct_interview (multi-turn ADK agent)
 ```
 
-## High-Level Design
+### Three Skills
 
-```
-┌─────────────────────────┐
-│ Interview Orchestrator  │
-│ (or other ADK agents)   │
-└───────────┬─────────────┘
-            │
-            │ A2A Protocol
-            │ (HTTP/JSON)
-            ▼
-┌───────────────────────────┐
-│  Google Agent             │
-│  (port 8003)              │
-│                           │
-│  Skills:                  │
-│  1. Analyze Scale         │
-│  2. Design Distributed    │
-│     Systems               │
-└───────────────────────────┘
-```
+**1. create_cart_for_interview** (Deterministic)
+- Creates AP2-compliant cart mandate
+- Pricing: System Design ($3.00), Coding ($4.00), Behavioral ($2.50)
+- JWT-signed with 15-minute expiry
 
-The agent exposes two specialized skills:
+**2. process_payment** (Deterministic)
+- Processes AP2 payment mandate
+- Forwards to Frontend Credentials Provider
+- Returns payment receipt with status
 
-1. **analyze_scale_requirements**: Analyzes requirements for billion-user scale systems
-   - Calculates QPS, storage, bandwidth
-   - Infrastructure planning (data centers, servers)
-   - Recommendations for CDN, edge caching, multi-region deployment
-
-2. **design_distributed_systems**: Suggests distributed system architecture patterns
-   - Consistency models (Paxos/Raft, CRDTs, eventual consistency)
-   - Replication strategies (multi-region, leader-follower, quorum)
-   - Sharding approaches (consistent hashing, range-based, geographic)
-   - Design patterns (CQRS, event sourcing, saga)
+**3. conduct_interview** (LLM-based)
+- Multi-turn system design interview
+- Google-specific feedback (scale, distributed systems, Google tech)
+- ADK session management for context
 
 ## Setup
 
-### 1. Install Dependencies
-
-Using `uv` (recommended):
+### Install
 ```bash
 cd services/google-agent
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-uv pip install -e . --no-verify-hashes
+uv venv && source .venv/bin/activate
+uv pip install -e .
 ```
 
-Or using `pip`:
-```bash
-cd services/google-agent
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -e .
-```
-
-### 2. Configure Environment
-
+### Configure
 ```bash
 cp .env.example .env
-# Edit .env and add your GOOGLE_API_KEY
 ```
 
-Required environment variables:
-- `GOOGLE_API_KEY`: Your Google API key for Gemini models
-- `AGENT_MODEL`: (Optional) Model to use, defaults to `gemini-2.0-flash-exp`
-
-## Commands to Start Service
-
-Start the A2A server on port 8003:
-
+**Required Variables:**
 ```bash
-cd services/google-agent
-source .venv/bin/activate
-uvicorn agent:a2a_app --host localhost --port 8003
+# Google AI
+GOOGLE_API_KEY=your_key_here
+AGENT_MODEL=gemini-2.0-flash-exp
+
+# Frontend (Credentials Provider)
+FRONTEND_URL=http://localhost:3000
+
+# Payment (AP2)
+MERCHANT_SECRET=your_secret_here  # For JWT signing
 ```
 
-You should see:
-```
-INFO:     Uvicorn running on http://localhost:8003 (Press CTRL+C to quit)
-```
-
-## Verify It's Running
-
-Check the agent card:
-
+### Run
 ```bash
-curl http://localhost:8003/.well-known/agent-card.json
+uvicorn main:app --host 0.0.0.0 --port 8001
 ```
 
-You should see JSON with the agent's skills, capabilities, and description.
-
-## Run Ruff (Linting and Formatting)
-
-Check code quality:
+### Lint
 ```bash
-cd services/google-agent
 uv run ruff check .
-```
-
-Format code:
-```bash
-cd services/google-agent
 uv run ruff format .
 ```
 
-Fix auto-fixable issues:
-```bash
-cd services/google-agent
-uv run ruff check . --fix
+## Code Structure
+
+```
+google-agent/
+├── main.py                  # A2A server setup, agent card
+├── agent_executor.py        # Custom executor with routing
+├── utils.py                 # Message parsing helpers
+└── tools/
+    ├── interview_tools.py   # LLM-based interview agent
+    └── payment_tools.py     # AP2 payment tools (cart + process)
 ```
 
-## How to Consume This Agent
+## A2A Protocol
 
-From another ADK agent (like interview-orchestrator), use `RemoteA2aAgent`:
+**Agent Card**: `http://localhost:8001/.well-known/agent-card.json`
 
+**Skills Exposed**:
+```json
+{
+  "skills": [
+    {
+      "id": "create_cart_for_interview",
+      "tags": ["payment", "cart", "interview"]
+    },
+    {
+      "id": "process_payment",
+      "tags": ["payment", "ap2", "stripe"]
+    },
+    {
+      "id": "conduct_interview",
+      "tags": ["interview", "system_design", "google"]
+    }
+  ]
+}
+```
+
+## Custom Executor
+
+**Routing Logic** (agent_executor.py):
 ```python
-from google.adk.agents.remote_a2a_agent import RemoteA2aAgent, AGENT_CARD_WELL_KNOWN_PATH
+tool_registry = {
+    "create_cart": create_cart_for_interview,
+    "cart": create_cart_for_interview,
+    "process_payment": process_payment,
+    "payment": process_payment,
+    "interview": conduct_interview,
+    "design": conduct_interview,
+}
 
-google_agent = RemoteA2aAgent(
-    name="google_agent",
-    description="Google system design expert for massive scale",
-    agent_card=f"http://localhost:8003{AGENT_CARD_WELL_KNOWN_PATH}"
-)
+# Parse message → Extract command → Route to tool
+command = parse_text_parts(message)[0].lower()
+tool_function = tool_registry.get(command)
+```
 
-# Add to your coordinator's sub_agents
-root_agent = Agent(
-    name="coordinator",
-    sub_agents=[google_agent, ...],
-    ...
+**Hybrid Pattern**:
+- Deterministic tools: Fast, predictable (payment)
+- LLM-based tools: Conversational, intelligent (interview)
+
+## Payment Tools
+
+### Cart Creation
+```python
+CartMandate(
+    contents=CartContents(
+        id="cart_google_{type}_{uuid}",
+        user_cart_confirmation_required=True,
+        payment_request=PaymentRequest(
+            description=f"Google {interview_type} Interview",
+            amount=Decimal("3.00"),  # Varies by type
+            currency="USD"
+        ),
+        cart_expiry=(now + 15 minutes),
+        merchant_name="Google Interview Platform"
+    ),
+    merchant_authorization=JWT_signature
 )
 ```
 
-## Port Information
+**JWT Signing**:
+- Algorithm: HS256
+- Payload: `{cart_hash, iss, exp}`
+- Secret: `MERCHANT_SECRET` environment variable
 
-- **Port 8003**: Google Agent (A2A server)
-- **Port 8000**: Interview orchestrator (consumes this agent)
+### Payment Processing
+```python
+# Forward to Frontend Credentials Provider
+response = await httpx.post(
+    f"{FRONTEND_URL}/api/payments/execute",
+    json={"payment_mandate": mandate}
+)
 
-The ports must be different when testing locally.
+# Return receipt
+PaymentReceipt(
+    status="completed" | "failed",
+    transaction_id=uuid,
+    receipt_data={...}
+)
+```
 
-## Development
+## Interview Tool
 
-Install development dependencies:
+**LLM Agent** (tools/interview_tools.py):
+```python
+interview_agent = LlmAgent(
+    name="google_interviewer",
+    model="gemini-2.0-flash-exp",
+    instruction="""Google system design interviewer focusing on:
+    - Scale: billions of users, QPS calculations
+    - Distributed systems: consistency, replication, sharding, CAP
+    - Google tech: Spanner, Bigtable, MapReduce
+    - Production: monitoring, reliability, disaster recovery
+    """
+)
+```
+
+**Multi-turn Conversation**:
+- Uses ADK session management (`session_id`, `user_id`)
+- Returns `TaskState.input_required` to keep conversation active
+- Maintains context across turns
+
+**Interview Flow**:
+1. Clarifying questions about requirements
+2. High-level design guidance
+3. Deep dive into components
+4. Trade-offs and alternatives
+5. Questions and feedback
+
+## Google-Specific Focus
+
+**Scale**:
+- Billion-user calculations
+- QPS analysis
+- Storage capacity planning
+- Multi-region deployment
+
+**Distributed Systems**:
+- Consistency models (Paxos/Raft, eventual consistency)
+- Replication strategies (multi-region, leader-follower)
+- Sharding approaches (consistent hashing, geographic)
+- CAP theorem trade-offs
+
+**Google Technologies**:
+- Spanner (globally distributed SQL)
+- Bigtable (NoSQL at scale)
+- MapReduce patterns
+- Chubby/Zookeeper
+
+**Production Engineering**:
+- Monitoring and observability
+- Reliability (SLAs, SLOs)
+- Disaster recovery
+- Incident response
+
+## Integration with Orchestrator
+
+**Consumption**:
+```python
+# In orchestrator's interview agent
+from shared.infra.a2a.remote_client import call_remote_skill
+
+response = await call_remote_skill(
+    agent_url="http://localhost:8001",
+    text="conduct_interview",
+    data={
+        "message": "How would you design a URL shortener?",
+        "user_id": "user-123",
+        "session_id": "interview-456"
+    }
+)
+# Returns: {"message": "Let's start with requirements..."}
+```
+
+**A2A Message Flow**:
+```
+Orchestrator
+  → HTTP POST /a2a/task
+  → Body: Message(text="conduct_interview", data={...})
+  → Google Agent Executor
+     → Parse message
+     → Route to conduct_interview tool
+     → Execute LLM agent
+     → Return Task with artifacts
+  ← Response: Task(state=input_required, artifacts=[response])
+← Extract response from artifacts
+```
+
+## Inter-Service Communication
+
+**With Orchestrator**:
+- A2A Protocol: HTTP/JSON skill invocation
+- Skills: `conduct_interview`, `create_cart`, `process_payment`
+- Endpoints: `POST /a2a/task`, `GET /.well-known/agent-card.json`
+
+**With Frontend**:
+- Payment processing: `POST /api/payments/execute`
+- Credentials Provider role in AP2 protocol
+
+## Environment Variables
+
 ```bash
-cd services/google-agent
-uv pip install -e ".[dev]"
+# Platform
+GOOGLE_GENAI_USE_VERTEXAI=FALSE  # Use Google AI Studio
+
+# API Key
+GOOGLE_API_KEY=your_key_here
+
+# Model
+AGENT_MODEL=gemini-2.0-flash-exp
+
+# Frontend
+FRONTEND_URL=http://localhost:3000
+
+# Payment
+MERCHANT_SECRET=secret_for_jwt_signing
 ```
 
-This includes:
-- `ruff`: Code linting and formatting
+## Verify Running
+
+**Check agent card**:
+```bash
+curl http://localhost:8001/.well-known/agent-card.json
+```
+
+**Test interview skill** (via orchestrator):
+```python
+from shared.infra.a2a.remote_client import call_remote_skill
+
+response = await call_remote_skill(
+    agent_url="http://localhost:8001",
+    text="interview",
+    data={"message": "Design a URL shortener", "session_id": "test-123"}
+)
+print(response["message"])
+```
+
+## Port Configuration
+
+- **8001**: Google Agent (actual code)
+- **8000**: Interview Orchestrator
+- **3000**: Frontend (Credentials Provider)
+
+**Note**: Documentation mentions 8003, but code uses 8001.

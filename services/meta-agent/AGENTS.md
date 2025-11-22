@@ -4,9 +4,9 @@
 
 **Name:** `meta_system_design_agent`
 **Type:** A2A Remote Agent
-**Port:** 8004
+**Port:** 8002
 **Protocol:** A2A (Agent-to-Agent)
-**Agent Card:** `http://localhost:8004/.well-known/agent-card.json`
+**Agent Card:** `http://localhost:8002/.well-known/agent-card.json`
 
 ## Capabilities
 
@@ -114,7 +114,7 @@ from google.adk.agents.remote_a2a_agent import RemoteA2aAgent, AGENT_CARD_WELL_K
 meta_agent = RemoteA2aAgent(
     name="meta_agent",
     description="Meta system design expert for social graphs and performance optimization",
-    agent_card="http://localhost:8004/.well-known/agent-card.json"
+    agent_card="http://localhost:8002/.well-known/agent-card.json"
 )
 ```
 
@@ -189,7 +189,7 @@ result = optimize_performance(
 ```json
 {
   "name": "meta_system_design_agent",
-  "url": "http://localhost:8004",
+  "url": "http://localhost:8002",
   "description": "Meta system design interview expert for social graphs and performance optimization",
   "version": "1.0.0",
   "skills": [
@@ -222,7 +222,7 @@ from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
 meta_agent = RemoteA2aAgent(
     name="meta_expert",
     description="Meta system design expert",
-    agent_card="http://localhost:8004/.well-known/agent-card.json"
+    agent_card="http://localhost:8002/.well-known/agent-card.json"
 )
 
 design_agent = Agent(

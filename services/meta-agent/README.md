@@ -33,7 +33,7 @@ meta-agent/
             ▼
 ┌───────────────────────────┐
 │  Meta Agent               │
-│  (port 8004)              │
+│  (port 8002)              │
 │                           │
 │  Skills:                  │
 │  1. Design Social Graph   │
@@ -87,17 +87,17 @@ Required environment variables:
 
 ## Commands to Start Service
 
-Start the A2A server on port 8004:
+Start the A2A server on port 8002:
 
 ```bash
 cd services/meta-agent
 source .venv/bin/activate
-uvicorn agent:a2a_app --host localhost --port 8004
+uvicorn agent:a2a_app --host localhost --port 8002
 ```
 
 You should see:
 ```
-INFO:     Uvicorn running on http://localhost:8004 (Press CTRL+C to quit)
+INFO:     Uvicorn running on http://localhost:8002 (Press CTRL+C to quit)
 ```
 
 ## Verify It's Running
@@ -105,7 +105,7 @@ INFO:     Uvicorn running on http://localhost:8004 (Press CTRL+C to quit)
 Check the agent card:
 
 ```bash
-curl http://localhost:8004/.well-known/agent-card.json
+curl http://localhost:8002/.well-known/agent-card.json
 ```
 
 You should see JSON with the agent's skills, capabilities, and description.
@@ -140,7 +140,7 @@ from google.adk.agents.remote_a2a_agent import RemoteA2aAgent, AGENT_CARD_WELL_K
 meta_agent = RemoteA2aAgent(
     name="meta_agent",
     description="Meta system design expert for social graphs",
-    agent_card=f"http://localhost:8004{AGENT_CARD_WELL_KNOWN_PATH}"
+    agent_card=f"http://localhost:8002{AGENT_CARD_WELL_KNOWN_PATH}"
 )
 
 # Add to your coordinator's sub_agents
@@ -153,7 +153,7 @@ root_agent = Agent(
 
 ## Port Information
 
-- **Port 8004**: Meta Agent (A2A server)
+- **Port 8002**: Meta Agent (A2A server)
 - **Port 8000**: Interview orchestrator (consumes this agent)
 
 The ports must be different when testing locally.

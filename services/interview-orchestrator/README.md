@@ -1,243 +1,226 @@
 # Interview Orchestrator
 
-A real-time interview orchestration service using WebSocket and bidirectional streaming. Coordinates multi-phase interviews with specialized sub-agents for routing, introduction, interview conduct, and closing.
+WebSocket-based multi-agent interview service using Google ADK. Manages phase-based interviews with real-time audio streaming, remote agent integration (A2A), and payment processing (AP2).
 
-## Description
-
-The Interview Orchestrator is a WebSocket-based service that manages the complete interview lifecycle:
-- **Routing**: Determines interview type (coding, system design) based on candidate info
-- **Introduction**: Greets candidate and explains interview format
-- **Interview Conduct**: Delegates to specialized interview agents (coding or design)
-- **Closing**: Wraps up interview and provides next steps
-
-The orchestrator supports both text and audio modes with real-time bidirectional streaming for user interruption.
-
-## Folder Structure
+## Architecture
 
 ```
-interview-orchestrator/
-├── interview_orchestrator/
-│   ├── __init__.py                    # Package initialization
-│   ├── server.py                      # WebSocket server with FastAPI
-│   ├── root_agent.py                  # Root coordinator agent
-│   ├── agents/
-│   │   ├── routing.py                 # Routes to interview type
-│   │   ├── intro.py                   # Introduction phase agent
-│   │   ├── interview.py               # Interview phase coordinator
-│   │   ├── closing.py                 # Closing phase agent
-│   │   └── interview_types/
-│   │       ├── coding.py              # Coding interview agent
-│   │       └── design.py              # System design interview agent
-│   └── shared/
-│       ├── schemas/                   # Data schemas
-│       ├── prompts/                   # Prompt templates
-│       └── agent_registry.py          # Remote agent management
-├── pyproject.toml                     # Project dependencies and configuration
-├── .env.example                       # Environment variable template
-├── README.md                          # This file (human-readable documentation)
-└── AGENTS.md                         # Agent documentation (LLM-readable)
+Client (WebSocket) → Orchestrator (port 8000)
+                        ↓
+                Root Coordinator (phase router)
+                        ↓
+    ┌──────────────────┼──────────────────┐
+    ▼                  ▼                  ▼
+ Routing            Intro             Closing
+  (payment)      (candidate info)   (feedback)
+                     ↓
+             Interview Router
+                     ↓
+         ┌──────────┴──────────┐
+         ▼                     ▼
+   Design Agent          Coding Agent
+         │                     │
+         └─────────A2A─────────┘
+                   ▼
+          Remote Agents (Google, Meta)
 ```
 
-## High-Level Design
+### Phase Flow
+1. **routing**: Company selection + AP2 payment
+2. **intro**: Collect candidate background
+3. **interview**: System design or coding (calls remote agents via A2A)
+4. **closing**: Feedback and wrap-up
+5. **done**: Session complete
 
-```
-┌────────────────────────────────────────┐
-│          WebSocket Client              │
-│     (Frontend / Test Client)           │
-└───────────────┬────────────────────────┘
-                │
-                │ WebSocket (Text/Audio)
-                │ Bidirectional Streaming
-                ▼
-┌────────────────────────────────────────┐
-│      Interview Orchestrator            │
-│         (port 8000)                    │
-│                                        │
-│  ┌──────────────────────────────────┐ │
-│  │  Root Coordinator Agent          │ │
-│  └──────────────┬───────────────────┘ │
-│                 │                      │
-│     ┌───────────┴──────────┐          │
-│     ▼           ▼          ▼          │
-│  ┌────────┐ ┌────────┐ ┌────────┐    │
-│  │Routing │ │ Intro  │ │Closing │    │
-│  │ Agent  │ │ Agent  │ │ Agent  │    │
-│  └────────┘ └────────┘ └────────┘    │
-│                 │                      │
-│            ┌────┴─────┐               │
-│            ▼          ▼               │
-│       ┌────────┐ ┌──────────┐        │
-│       │ Coding │ │  Design  │        │
-│       │ Agent  │ │  Agent   │        │
-│       └────────┘ └────┬─────┘        │
-└─────────────────────────┼─────────────┘
-                          │
-                          │ A2A Protocol
-                          ▼
-             ┌──────────────────────┐
-             │   Remote Agents      │
-             │  - Google (8003)     │
-             │  - Meta (8004)       │
-             │  - Amazon (8001)     │
-             │  - Uber (8002)       │
-             └──────────────────────┘
-```
+### Key Components
+
+**WebSocket Layer** (`websocket/`)
+- `app.py`: FastAPI server, WebSocket endpoint
+- `session.py`: ADK session management (InMemory → PostgreSQL sync)
+- `events.py`: Event filtering (text-only) and enrichment
+- `agent_to_client.py`: Stream agent responses (audio/text)
+- `client_to_agent.py`: Relay client messages (audio/text/confirmations)
+
+**Agent Hierarchy** (`agents/`)
+- `root_agent.py`: Phase-based coordinator
+- `routing.py`: Company selection + payment (AP2)
+- `intro.py`: Candidate info collection
+- `interview.py`: Interview type router
+- `interview_types/design.py`: System design with remote expert calls
+- `interview_types/coding.py`: Coding with code execution + remote expert
+- `closing.py`: Interview wrap-up
+
+**Infrastructure** (`shared/infra/`)
+- `a2a/agent_registry.py`: Remote agent discovery
+- `a2a/remote_client.py`: A2A protocol client
+- `ap2/payment_flow.py`: Payment processing
+- `ap2/cart_helpers.py`: Cart mandate retrieval
 
 ## Setup
 
-### 1. Install Dependencies
-
-Using `uv` (recommended):
+### Install
 ```bash
 cd services/interview-orchestrator
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+uv venv && source .venv/bin/activate
 uv pip install -e .
 ```
 
-Or using `pip`:
-```bash
-cd services/interview-orchestrator
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -e .
-```
-
-### 2. Configure Environment
-
+### Configure
 ```bash
 cp .env.example .env
-# Edit .env and add required configuration
 ```
 
-Required environment variables:
-- `GOOGLE_API_KEY`: Your Google API key for Gemini models
-- `AGENT_MODEL`: (Optional) Model to use, defaults to `gemini-2.0-flash-exp`
-- `REMOTE_AGENT_URLS`: (Optional) Comma-separated URLs for remote agents
-
-## Commands to Start Service
-
-Start the WebSocket server on port 8000:
-
+**Required Variables:**
 ```bash
-cd services/interview-orchestrator
-source .venv/bin/activate
+# Google AI
+GOOGLE_API_KEY=your_key_here
+AGENT_MODEL=gemini-2.5-flash-native-audio-preview-09-2025
+
+# Database
+DATABASE_URL=postgresql://localhost:5432/interview_db
+
+# Frontend (Credentials Provider for AP2)
+FRONTEND_URL=http://localhost:3000
+
+# Remote Agents (optional)
+INTERVIEW_AGENTS=google,meta
+GOOGLE_AGENT_URL=http://localhost:8001
+GOOGLE_AGENT_TYPES=system_design,coding
+META_AGENT_URL=http://localhost:8002
+META_AGENT_TYPES=system_design
+```
+
+### Run
+```bash
 python -m uvicorn interview_orchestrator.server:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-You should see:
-```
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-```
-
-## Verify It's Running
-
-Open your browser and navigate to:
-```
-http://localhost:8000
-```
-
-You should see the interview interface.
-
-## Run Ruff (Linting and Formatting)
-
-Check code quality:
+### Lint
 ```bash
-cd services/interview-orchestrator
-uv run ruff check .
-```
-
-Or:
-```bash
-cd services/interview-orchestrator
 uv run ruff check interview_orchestrator/
+uv run ruff format interview_orchestrator/
 ```
 
-Format code:
-```bash
-cd services/interview-orchestrator
-uv run ruff format .
+## WebSocket Protocol
+
+**Endpoint**: `ws://localhost:8000/ws/{user_id}?interview_id={id}&is_audio=true`
+
+**Client → Server:**
+```json
+// Audio (16kHz PCM)
+{"mime_type": "audio/pcm", "data": "base64..."}
+
+// Text
+{"mime_type": "text/plain", "data": "Hello"}
+
+// Payment confirmation
+{"mime_type": "confirmation_response", "data": {"confirmation_id": "...", "approved": true}}
+
+// Canvas screenshot
+{"mime_type": "image/png", "data": "base64..."}
 ```
 
-Fix auto-fixable issues:
-```bash
-cd services/interview-orchestrator
-uv run ruff check . --fix
-```
-
-## WebSocket API
-
-### Connect to WebSocket
-
-```
-ws://localhost:8000/ws
-```
-
-### Message Format
-
-**Text Message (from client):**
+**Server → Client:**
 ```json
 {
-  "type": "message",
-  "content": "Hello, I'm ready for the interview"
+  "author": "agent",
+  "is_partial": false,
+  "turn_complete": true,
+  "interrupted": false,
+  "parts": [
+    {"type": "audio/pcm", "data": "base64..."},
+    {"type": "text", "data": "Welcome..."}
+  ],
+  "state": {
+    "interview_phase": "intro",
+    "routing_decision": {"company": "google", "interview_type": "system_design"},
+    "candidate_info": {"name": "...", "years_experience": 5}
+  }
 }
 ```
 
-**Audio Message (from client):**
-```json
-{
-  "type": "audio",
-  "audio": "base64_encoded_audio_data"
-}
+## Session Management
+
+**During Interview:**
+- InMemoryRunner (zero latency)
+- State stored in ADK session.state
+- Real-time audio/text streaming
+
+**After Disconnect:**
+- Sync to PostgreSQL (text transcriptions only)
+- Filter events via `should_sync_event()` (50min → 2min)
+- Enrich events with transcriptions
+- Batch sync in 50-event chunks
+
+## A2A Integration
+
+**Remote Agent Discovery:**
+```python
+# Configure via environment
+GOOGLE_AGENT_URL=http://localhost:8001
+GOOGLE_AGENT_TYPES=system_design,coding
+
+# Call from interview agent
+response = await call_remote_skill(
+    agent_url=agent_url,
+    text="Conduct interview",
+    data={"message": "Design URL shortener", "session_id": "..."}
+)
 ```
 
-**Server Response:**
-```json
-{
-  "type": "text",
-  "content": "Welcome to the interview..."
-}
+**Multi-turn Context:**
+- `session_id` maintains conversation context
+- Remote agent keeps state across turns
+- Returns `TaskState.input_required` for continuation
+
+## AP2 Payment Flow
+
+1. **Get Cart**: Call remote agent's `create_cart` skill
+2. **Display**: Set `pending_confirmation` in state → Frontend shows payment UI
+3. **Confirm**: User approves → Frontend calls `/api/payments/get-token`
+4. **Execute**: Create payment mandate → Call remote agent's `process_payment` skill
+5. **Verify**: Store `payment_proof` in state → Transition to `intro` phase
+
+## Code Structure
+
+```
+interview_orchestrator/
+├── server.py                    # Entry point (logging config)
+├── root_agent.py                # Root coordinator
+├── websocket/                   # WebSocket layer
+│   ├── app.py                  # FastAPI app + endpoints
+│   ├── session.py              # ADK session lifecycle
+│   ├── events.py               # Event filtering/enrichment
+│   ├── agent_to_client.py      # Agent → Client streaming
+│   └── client_to_agent.py      # Client → Agent relay
+├── agents/                      # Agent hierarchy
+│   ├── routing.py              # Company + payment
+│   ├── intro.py                # Candidate info
+│   ├── interview.py            # Interview router
+│   ├── closing.py              # Wrap-up
+│   └── interview_types/
+│       ├── design.py           # System design
+│       └── coding.py           # Coding
+└── shared/                      # Shared modules
+    ├── constants.py            # Gemini model config
+    ├── session_store.py        # Active sessions dict
+    ├── schemas/                # Pydantic models
+    ├── prompts/                # Prompt templates
+    └── infra/
+        ├── a2a/                # A2A protocol
+        └── ap2/                # Payment protocol
 ```
 
-## Working with Remote Agents
+## Inter-Service Communication
 
-The interview orchestrator can consume remote A2A agents (Google, Meta, Amazon, Uber) for specialized system design questions.
+**With Frontend:**
+- WebSocket: Bidirectional audio/text streaming
+- API Calls: Payment token retrieval (`/api/payments/get-token`)
 
-1. Start remote agents first (see their respective READMEs)
-2. Configure agent URLs in `.env` or through agent registry
-3. The design interview agent will automatically discover and use available skills
+**With Remote Agents:**
+- A2A Protocol: HTTP/JSON skill invocation
+- Skills: `conduct_interview`, `create_cart`, `process_payment`
 
-## Development
-
-Install development dependencies:
-```bash
-cd services/interview-orchestrator
-uv pip install -e ".[dev]"
-```
-
-This includes:
-- `pytest`: Testing framework
-- `pytest-asyncio`: Async test support
-- `pytest-cov`: Code coverage
-- `ruff`: Code linting and formatting
-- `pre-commit`: Git hooks
-
-Run tests:
-```bash
-cd services/interview-orchestrator
-uv run pytest
-```
-
-Run tests with coverage:
-```bash
-cd services/interview-orchestrator
-uv run pytest --cov=interview_orchestrator --cov-report=html
-```
-
-## Port Information
-
-- **Port 8000**: Interview Orchestrator (WebSocket server)
-- **Port 8001**: Google Agent (optional remote agent)
-- **Port 8002**: Meta Agent (optional remote agent)
-
-All ports must be unique when running locally.
+**With Database:**
+- PostgreSQL: Session persistence via ADK's DatabaseSessionService
+- Tables: `adk_sessions`, `adk_events` (schema: public)
