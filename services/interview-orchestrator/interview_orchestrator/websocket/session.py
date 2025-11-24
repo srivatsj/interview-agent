@@ -4,8 +4,9 @@ import asyncio
 import logging
 import os
 
-from google.adk.agents import LiveRequestQueue
+from google.adk.agents import Agent, LiveRequestQueue
 from google.adk.agents.run_config import RunConfig
+from google.adk.models.google_llm import Gemini
 from google.adk.runners import InMemoryRunner
 from google.adk.sessions import DatabaseSessionService
 
@@ -31,8 +32,11 @@ async def start_agent_session(user_id: str, interview_id: str, is_audio: bool = 
     Returns:
         Tuple of (live_events, live_request_queue, session_key)
     """
+    # Use root_agent (speech_config enabled/disabled based on ENV variable)
+    agent = root_agent
+
     # Create a Runner per session - InMemory for real-time performance
-    runner = InMemoryRunner(app_name=APP_NAME, agent=root_agent)
+    runner = InMemoryRunner(app_name=APP_NAME, agent=agent)
 
     # Create session key
     session_key = f"{user_id}:{interview_id}"
@@ -64,13 +68,21 @@ async def start_agent_session(user_id: str, interview_id: str, is_audio: bool = 
     # IMPORTANT: When using test_multiagent, agents already have speech_config in Gemini() wrapper
     # so we should NOT set it again in RunConfig to avoid conflicts
 
-    # Minimal RunConfig - speech_config is in agent models
-    run_config = RunConfig(
-        streaming_mode="bidi",
-        response_modalities=["AUDIO"],
-        output_audio_transcription={},
-        input_audio_transcription={},
-    )
+    # Setup RunConfig based on mode
+    if is_audio:
+        # Audio mode: native-audio model with audio I/O and transcriptions
+        run_config = RunConfig(
+            streaming_mode="bidi",
+            response_modalities=["AUDIO"],
+            output_audio_transcription={},  # Get text transcription of agent audio
+            input_audio_transcription={},   # Get text transcription of user audio
+        )
+    else:
+        # Text mode: standard Gemini model with text I/O
+        run_config = RunConfig(
+            streaming_mode="bidi",
+            response_modalities=["TEXT"],
+        )
 
     # Start agent session
     live_events = runner.run_live(

@@ -77,11 +77,16 @@ class RemoteAgentClient:
         client = await self._get_client()
         task_manager = ClientTaskManager()
 
+        logger.info(f"📤 Sending message to {self.base_url}...")
+        event_count = 0
         async for event in client.send_message(message):
             if isinstance(event, tuple):
                 event = event[0]
+            event_count += 1
+            logger.info(f"📨 Event #{event_count}: {type(event).__name__}")
             await task_manager.process(event)
 
+        logger.info(f"✅ Received {event_count} events, extracting task...")
         task = task_manager.get_task()
         if task is None:
             raise RuntimeError(f"No response from {self.base_url}")
@@ -129,14 +134,24 @@ def extract_data_from_task(task: Task) -> dict[str, Any]:
     Raises:
         RuntimeError: If no data found
     """
+    logger.info(f"🔍 Extracting data from task (status: {task.status.state if task.status else 'NO_STATUS'})")
+
     if not task.artifacts:
-        logger.error("❌ No artifacts in response")
+        logger.error(f"❌ No artifacts in response (task_id: {task.task_id})")
+        logger.error(f"📋 Task status message: {task.status.message if task.status else 'NONE'}")
         raise RuntimeError("No artifacts in task response")
 
-    for artifact in task.artifacts:
-        for part in artifact.parts:
+    logger.info(f"📦 Found {len(task.artifacts)} artifact(s)")
+
+    for i, artifact in enumerate(task.artifacts):
+        logger.info(f"📦 Artifact #{i+1}: {len(artifact.parts)} part(s)")
+        for j, part in enumerate(artifact.parts):
+            logger.info(f"  Part #{j+1}: kind={part.root.kind}, type={type(part.root).__name__}")
             if part.root.kind == "data" and isinstance(part.root.data, dict):
-                logger.info(f"✅ Extracted data: {list(part.root.data.keys())}")
+                data_keys = list(part.root.data.keys())
+                logger.info(f"✅ Extracted data with keys: {data_keys}")
+                if "message" in part.root.data:
+                    logger.info(f"📝 Message preview: {part.root.data['message'][:200]}...")
                 return part.root.data
 
     logger.error("❌ No data found in artifacts")

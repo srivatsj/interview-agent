@@ -7,6 +7,11 @@ Phase flow: routing → intro → interview → closing → done
 import logging
 
 from dotenv import load_dotenv
+
+# Load environment variables BEFORE importing anything that uses them
+# override=False: Don't override existing env vars (allows tests to set ENV=test)
+load_dotenv(override=False)
+
 from google.adk.agents import Agent
 from google.adk.agents.readonly_context import ReadonlyContext
 
@@ -15,9 +20,6 @@ from .agents.interview import interview_agent
 from .agents.intro import intro_agent
 from .agents.routing import routing_agent
 from .shared.constants import get_gemini_model
-
-# Load environment variables
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 

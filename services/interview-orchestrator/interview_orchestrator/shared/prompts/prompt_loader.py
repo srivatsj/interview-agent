@@ -14,9 +14,9 @@ def load_prompt(filename: str, **kwargs) -> str:
     Returns:
         Formatted prompt string
     """
-    # Select dev or prod folder based on DEV_MODE env variable
-    dev_mode = os.getenv("DEV_MODE", "false").lower() == "true"
-    folder = "dev" if dev_mode else "prod"
+    # Select dev or prod folder based on ENV variable
+    env = os.getenv("ENV", "dev").lower()
+    folder = "dev" if env != "prod" else "prod"
 
     prompt_path = Path(__file__).parent / folder / filename
     prompt = prompt_path.read_text()

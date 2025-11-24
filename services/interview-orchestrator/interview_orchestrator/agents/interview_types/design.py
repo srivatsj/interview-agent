@@ -42,6 +42,9 @@ async def ask_remote_expert(query: str, tool_context: ToolContext) -> str:
         interview_id = tool_context.state.get("interview_id", tool_context.invocation_id)
         user_id = tool_context.state.get("user_id", "unknown")
 
+        logger.info(f"🔗 Calling remote expert at {agent_url} for session {interview_id[:8] if isinstance(interview_id, str) else interview_id}")
+        logger.info(f"📝 Query: {query[:100]}...")
+
         # Call remote agent with conversation context
         response = await call_remote_skill(
             agent_url=agent_url,
@@ -52,6 +55,8 @@ async def ask_remote_expert(query: str, tool_context: ToolContext) -> str:
                 "session_id": interview_id,  # Maintains conversation state
             },
         )
+
+        logger.info(f"✅ Got response from remote expert ({len(response.get('message', ''))} chars)")
 
         # Extract message from response (works with custom executor)
         return response.get("message", "")
