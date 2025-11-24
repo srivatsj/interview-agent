@@ -334,3 +334,71 @@ uv run pytest -v -s
 ✅ **Clean setup/teardown** - No resource leaks
 
 **Total: 5/5 core tests passing (100%)**
+
+---
+
+## Canvas Data Testing
+
+### Overview
+
+Tests verify remote agents can process canvas data during interviews:
+- **System Design**: PNG images (architecture diagrams)
+- **Coding**: Text content (code implementations)
+
+### Test Fixtures (`../canvas_data/`)
+
+| File | Type | Size | Purpose |
+|------|------|------|---------|
+| `system_design_whiteboard.png` | PNG | 47KB (849x398) | URL shortener architecture from [Grokking System Design](https://github.com/Jeevan-kumar-Raj/Grokking-System-Design) |
+| `code_implementation.txt` | Text | 2KB | Python URL shortener with Redis & PostgreSQL |
+
+### Canvas Tests
+
+#### ✅ `test_system_design_interview_with_png`
+**What it tests:**
+- Multi-turn (3 turns) system design interview
+- PNG diagram sent in turn 1
+- Context maintained across turns 2-3
+- Agent analyzes visual architecture
+
+**Flow:**
+1. Send architecture PNG with message
+2. Discuss caching strategy (no canvas)
+3. Scale to 1B users (no canvas)
+
+**Result:** ✅ PASSED (~9 seconds)
+
+#### ✅ `test_coding_interview_with_text`
+**What it tests:**
+- Multi-turn (3 turns) coding interview
+- Text code sent in turn 1
+- Context maintained across turns 2-3
+- Agent parses and reviews code
+
+**Flow:**
+1. Send Python code as text
+2. Discuss base62 encoding (no canvas)
+3. Edge case discussion (no canvas)
+
+**Result:** ✅ PASSED (~11 seconds)
+
+### Strategy
+
+| Interview Type | Canvas Format | Rationale |
+|----------------|---------------|-----------|
+| System Design  | PNG image     | Spatial layout, visual architecture understanding |
+| Coding         | Text only     | Precise parsing, 10-100x cheaper tokens, faster |
+
+### Running Canvas Tests
+
+```bash
+cd tests
+source .venv/bin/activate
+
+# Both canvas tests
+pytest e2e/test_full_interview.py::TestRemoteExpertIntegration::test_system_design_interview_with_png -v
+pytest e2e/test_full_interview.py::TestRemoteExpertIntegration::test_coding_interview_with_text -v
+
+# All integration tests (includes canvas tests)
+pytest e2e/test_full_interview.py::TestRemoteExpertIntegration -v
+```

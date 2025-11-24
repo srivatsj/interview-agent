@@ -1,0 +1,65 @@
+
+# URL Shortener - Python Implementation
+
+class URLShortener:
+    def __init__(self, db_connection, cache_client):
+        self.db = db_connection
+        self.cache = cache_client
+        self.base62_chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    
+    def shorten_url(self, long_url: str, user_id: str) -> str:
+        # Check if URL already exists
+        existing = self.db.get_by_long_url(long_url)
+        if existing:
+            return existing.short_code
+        
+        # Generate unique short code
+        short_code = self._generate_code()
+        
+        # Store in database
+        self.db.insert({
+            'short_code': short_code,
+            'long_url': long_url,
+            'user_id': user_id,
+            'created_at': datetime.now()
+        })
+        
+        # Store in cache
+        self.cache.set(short_code, long_url, ex=3600)
+        
+        return short_code
+    
+    def get_long_url(self, short_code: str) -> Optional[str]:
+        # Try cache first
+        cached = self.cache.get(short_code)
+        if cached:
+            self._increment_analytics(short_code)
+            return cached
+        
+        # Fallback to database
+        result = self.db.get_by_short_code(short_code)
+        if result:
+            # Update cache
+            self.cache.set(short_code, result.long_url, ex=3600)
+            self._increment_analytics(short_code)
+            return result.long_url
+        
+        return None
+    
+    def _generate_code(self, length=7) -> str:
+        # Use base62 encoding of timestamp + random
+        import random
+        import time
+        
+        num = int(time.time() * 1000) + random.randint(0, 1000000)
+        code = ""
+        
+        while num > 0:
+            code = self.base62_chars[num % 62] + code
+            num //= 62
+        
+        return code[-length:]
+    
+    def _increment_analytics(self, short_code: str):
+        # Async increment in analytics DB
+        self.db.increment_clicks(short_code)
