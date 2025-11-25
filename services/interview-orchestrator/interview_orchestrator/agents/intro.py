@@ -1,5 +1,7 @@
 """Intro agent for collecting candidate information."""
 
+import logging
+
 from google.adk.agents import Agent
 from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.tools import ToolContext
@@ -7,6 +9,8 @@ from google.adk.tools import ToolContext
 from ..shared.constants import get_gemini_model
 from ..shared.prompts.prompt_loader import load_prompt
 from ..shared.schemas.candidate_info import CandidateInfo
+
+logger = logging.getLogger(__name__)
 
 
 def save_candidate_info(
@@ -37,6 +41,8 @@ def save_candidate_info(
 
     tool_context.state["candidate_info"] = candidate_info.model_dump()
     tool_context.state["interview_phase"] = "interview"
+
+    logger.info(f"Candidate info saved: {name}, transitioning to interview phase")
 
     return (
         f"Candidate info saved: {name}, {years_experience} years experience "

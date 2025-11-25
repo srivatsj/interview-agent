@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import os
 import uuid
 
 from google.adk.agents import Agent
@@ -63,6 +64,28 @@ async def confirm_company_selection(
     details = payment_request.get("details", {})
     total = details.get("total", {})
     price = total.get("amount", {}).get("value", 0.0)
+
+    # Check for auto-approve in test/dev mode (bypasses WebSocket confirmation)
+    env = os.getenv("ENV", "prod")
+    auto_approve = os.getenv("AUTO_APPROVE_PAYMENTS", "false").lower() == "true"
+
+    if auto_approve and env in ["test", "dev"]:
+        logger.info("🧪 Test mode: Auto-approving payment without user confirmation")
+        tool_context.state["payment_completed"] = True
+        tool_context.state["routing_decision"] = RoutingDecision(
+            company=company.lower(),
+            interview_type=interview_type.lower(),
+            confidence=1.0,
+        ).model_dump()
+        tool_context.state["interview_phase"] = "intro"
+
+        interview_name = f"{company.title()} {interview_type.replace('_', ' ')}"
+        logger.info(f"✅ Payment auto-approved! Starting {interview_name} interview")
+        return (
+            f"PAYMENT_SUCCESS: ${price:.2f} payment auto-approved in test mode. "
+            f"{interview_name} interview is ready. "
+            f"Announce success to user and begin intro phase."
+        )
 
     # Setup confirmation flow
     confirmation_id = str(uuid.uuid4())

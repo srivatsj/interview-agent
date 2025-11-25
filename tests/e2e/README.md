@@ -6,227 +6,260 @@ End-to-end tests for the Interview Agent platform, covering both the Google Agen
 ## Test Results Summary
 
 ```
-✅ 5 PASSED, 1 SKIPPED
-⏱️  Total Time: 126.92s (2 min 6 sec)
-📊 Pass Rate: 100% (excluding skipped)
+✅ 6 PASSED
+⏱️  Total Time: 65.10s (~1 min 5 sec)
+📊 Pass Rate: 100%
 ```
+
+---
+
+## Quick Start
+
+```bash
+# Run all E2E tests
+cd tests
+source .venv/bin/activate
+pytest e2e/ -v
+```
+
+**Expected output**: ✅ 6 PASSED in ~65 seconds
 
 ---
 
 ## Test Files
 
-### 1. Core Test Files
-
 | File | Purpose | Tests |
 |------|---------|-------|
-| `test_full_interview.py` | Google Agent A2A Protocol | 2 tests |
-| `test_orchestrator_websocket.py` | Orchestrator WebSocket Layer | 3 tests + 1 skipped |
-
-### 2. Helper Modules
-
-| File | Purpose |
-|------|---------|
-| `a2a_helper.py` | A2A client helper for testing remote agents |
-| `websocket_helper.py` | WebSocket test client for orchestrator testing |
-| `conftest.py` | Pytest fixtures (server startup, cleanup) |
+| `test_full_interview.py` | Remote Agent A2A Protocol | 4 tests |
+| `test_orchestrator_websocket.py` | Orchestrator WebSocket + State | 2 tests |
+| `conftest.py` | Pytest fixtures (server startup, cleanup, debug helpers) |
+| `a2a_helper.py` | A2A client for remote agent testing |
+| `websocket_helper.py` | WebSocket test client for orchestrator |
 
 ---
 
 ## Test Details
 
-### A. Google Agent A2A Tests (`test_full_interview.py`)
+### A. Remote Agent (A2A) Tests - `test_full_interview.py`
 
-Tests direct communication with the Google interview agent via A2A protocol.
+Tests the Google interview agent directly via A2A protocol (bypassing orchestrator).
 
-#### ✅ `test_google_agent_direct_call`
-**What it tests:**
-- Direct A2A communication with Google interview agent
-- Agent card resolution from `.well-known/agent-card.json`
-- JSON-RPC skill invocation (`conduct_interview`)
-- Response extraction from A2A task artifacts
-
-**Result:** ✅ PASSED
-**Time:** ~1 second
-**Response:** 428 chars
-
-#### ✅ `test_google_agent_multi_turn`
-**What it tests:**
-- 3 consecutive conversation turns with same session
-- Session context persistence across turns
-- ADK session storage in Neon database
-- Conversation flow continuity
-
-**Result:** ✅ PASSED
-**Time:** ~6 seconds
-**Turns:** 3 successful turns with context maintained
+#### 1. `test_google_agent_direct_call` ✅
+**Tests:** Basic A2A communication
+**Coverage:** Agent card fetching, JSON-RPC invocation, single response
+**Multi-turn:** No
+**Canvas:** No
+**State:** No
 
 ---
 
-### B. Orchestrator WebSocket Tests (`test_orchestrator_websocket.py`)
+#### 2. `test_google_agent_multi_turn` ✅
+**Tests:** Conversation context persistence
+**Coverage:** 3-turn conversation with same session_id
+**Multi-turn:** ✅ 3 turns
+**Canvas:** No
+**State:** Session persistence only
 
-Tests WebSocket communication between frontend simulator and orchestrator.
-
-#### ✅ `test_websocket_connection`
-**What it tests:**
-- Basic WebSocket connection to orchestrator
-- Message sending via WebSocket
-- Receiving text responses in correct format
-- Connection cleanup
-
-**Result:** ✅ PASSED
-**Time:** ~3 seconds
-**Messages:** 7 messages received
-**Response:** Text greeting from routing agent
-
-#### ✅ `test_routing_phase`
-**What it tests:**
-- Routing phase functionality
-- Interview type selection
-- Text response validation
-- Multi-turn conversation in routing phase
-
-**Result:** ✅ PASSED
-**Time:** ~37 seconds
-**Turns:** 2 turns
-**Response:** 1156 chars total
-
-#### ✅ `test_end_to_end_simple_flow`
-**What it tests:**
-- Complete flow from greeting to interview
-- Phase transitions (routing → intro → interview)
-- Integration with Google agent via A2A
-- Payment auto-approval in test mode
-- Substantial interview responses
-
-**Result:** ✅ PASSED
-**Time:** ~66 seconds
-**Turns:** 3 turns
-**Final Response:** 1076 chars (interview content)
-
-#### ⏭️ `test_full_phase_flow` (SKIPPED)
-**Status:** Not yet implemented
-**Purpose:** Full phase flow with detailed state verification
+**Turns:**
+1. "Hi, I'm ready"
+2. "I'd like to clarify the requirements"
+3. "I propose using Spanner and Bigtable"
 
 ---
 
-## Architecture Verified
+#### 3. `test_system_design_interview_with_png` ✅
+**Tests:** PNG canvas diagram processing
+**Coverage:** Multi-turn with architecture diagram, context after canvas
+**Multi-turn:** ✅ 3 turns
+**Canvas:** ✅ PNG (system design whiteboard, 47KB)
+**State:** No
 
+**Turns:**
+1. Share architecture PNG + text
+2. Discuss caching strategy
+3. Scale discussion
+
+---
+
+#### 4. `test_coding_interview_with_text` ✅
+**Tests:** Text code processing
+**Coverage:** Multi-turn with code as text, context after code
+**Multi-turn:** ✅ 3 turns
+**Canvas:** ✅ Text (Python code, 2KB)
+**State:** No
+
+**Turns:**
+1. Share Python implementation as text
+2. Discuss encoding strategy
+3. Edge cases discussion
+
+---
+
+### B. Orchestrator (WebSocket + State) Tests - `test_orchestrator_websocket.py`
+
+Tests the complete system via WebSocket (frontend → orchestrator → remote agent) with state verification.
+
+#### 5. `test_phase_transitions_routing_to_design` ✅
+**Tests:** Phase flow with state transitions and tool calls
+**Coverage:** routing → payment → intro → interview phases
+**Multi-turn:** ✅ 6 turns (intro uses 4 turns to collect candidate info)
+**Canvas:** No
+**State:** ✅ Full state verification at each phase
+
+**Phase Flow:**
+1. **Routing:** "Hello, I want to practice interviews" → phase=routing
+2. **Payment:** "I'd like a Google system design interview" → phase=intro, payment_completed=true
+3-6. **Intro (4 turns):** Collect name, years, domain, projects → phase=interview
+
+**State Assertions:**
+- `interview_phase`: routing → intro → interview
+- `payment_completed`: true
+- `routing_decision`: {company: "google", interview_type: "system_design"}
+- `candidate_info`: {name, years_experience, domain, projects}
+
+**Tool Call Verification:**
+- `confirm_company_selection`
+- `save_candidate_info`
+
+---
+
+#### 6. `test_full_e2e_with_design_and_closing` ✅
+**Tests:** Complete critical user journey with canvas
+**Coverage:** All phases including design with PNG canvas and closing
+**Multi-turn:** ✅ 9 turns total
+**Canvas:** ✅ PNG sent during design, verified in state
+**State:** ✅ Full state + canvas persistence
+
+**Phase Flow:**
+1-2. Routing + Payment
+3-6. Intro (4 turns to collect candidate info)
+7. Design Turn 1: Send PNG canvas + text
+8. Design Turn 2: Discuss database (canvas persists in state)
+9. Closing: "I think I'm done"
+
+**State Assertions:**
+- All phases complete
+- `canvas_screenshot`: base64 PNG persists across turns
+- Payment and candidate info verified
+- Tool calls verified
+
+---
+
+## Test Coverage Matrix
+
+| Feature | Test 1 | Test 2 | Test 3 | Test 4 | Test 5 | Test 6 |
+|---------|:------:|:------:|:------:|:------:|:------:|:------:|
+| **A2A Protocol** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Multi-turn** | ❌ | ✅(3) | ✅(3) | ✅(3) | ✅(6) | ✅(9) |
+| **Phase Transitions** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| **State Verification** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| **Payment Flow** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| **Candidate Info** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| **Tool Calls** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| **Canvas PNG** | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| **Canvas Text** | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| **Canvas Persistence** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Closing Phase** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **WebSocket** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+
+**Legend:**
+- Tests 1-4: Remote agent only (A2A direct)
+- Tests 5-6: Full stack (WebSocket → Orchestrator → Remote agent)
+- ✅(n): Number indicates conversation turns
+
+---
+
+## Running Tests
+
+### All Tests
+```bash
+cd tests
+source .venv/bin/activate
+pytest e2e/ -v
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    E2E Test Suite                       │
-└─────────────────────────────────────────────────────────┘
-                          │
-        ┌─────────────────┴──────────────────┐
-        ▼                                     ▼
-┌──────────────────┐              ┌─────────────────────┐
-│   A2A Tests      │              │  WebSocket Tests    │
-│  (Layer 3)       │              │  (Layers 1 & 2)     │
-└────────┬─────────┘              └──────────┬──────────┘
-         │                                   │
-         ▼                                   ▼
-┌─────────────────────┐          ┌──────────────────────┐
-│  Google Agent       │◄─────────│  Orchestrator        │
-│  (localhost:8001)   │   A2A    │  (localhost:8000)    │
-│                     │  calls   │                      │
-│  - Agent Card       │          │  - WebSocket Server  │
-│  - conduct_interview│          │  - Session Mgmt      │
-│  - Session Store    │          │  - Phase Routing     │
-└─────────────────────┘          └──────────────────────┘
-         │                                   │
-         └───────────────┬───────────────────┘
-                         ▼
-                ┌─────────────────┐
-                │  Neon Database  │
-                │  (PostgreSQL)   │
-                └─────────────────┘
+
+### By Test File
+```bash
+# Remote agent tests only (4 tests)
+pytest e2e/test_full_interview.py -v
+
+# Orchestrator tests only (2 tests)
+pytest e2e/test_orchestrator_websocket.py -v
+```
+
+### Single Test
+```bash
+pytest e2e/test_orchestrator_websocket.py::TestOrchestratorCriticalUserJourneys::test_phase_transitions_routing_to_design -v
+```
+
+### With Debugging
+```bash
+# Show print statements and logs
+pytest e2e/ -v -s --log-cli-level=INFO
+
+# Stop on first failure
+pytest e2e/ -v -x
 ```
 
 ---
 
 ## Test Infrastructure
 
-### Server Fixtures (conftest.py)
+### Server Fixtures (`conftest.py`)
 
-**`google_agent_server`**
+**`google_agent_server`** (session-scoped)
 - Starts Google agent on port 8001
-- Health check via agent card endpoint
+- Health check via `.well-known/agent-card.json`
+- Subprocess with temp log files
 - Auto-cleanup on teardown
 
-**`orchestrator_server`**
+**`orchestrator_server`** (session-scoped)
 - Starts orchestrator on port 8000
-- Uses orchestrator's venv Python
+- Uses orchestrator's .venv Python
 - Sets ENV=test, AUTO_APPROVE_PAYMENTS=true
-- **Sets DATABASE_URL from tests/.env** (uses test database, not production!)
-- Health check via `/health` endpoint
-- Captures stderr/stdout on failure
+- Uses test DATABASE_URL from tests/.env
+- Health check via `/health`
+- Subprocess with temp log files
+- Auto-cleanup + database cleanup on teardown
 
-**`clean_session`**
-- Cleans up test sessions from database after each test
-- Tests use InMemoryRunner but sessions are synced to DB when WebSocket closes
-- Deletes all sessions for `test_user_e2e` from test database via SQL
-- Uses test DATABASE_URL from tests/.env (separate from production)
+**`get_session`** (function-scoped)
+- Debug fixture to query session state
+- Returns `{state: {}, tool_calls: []}`
+- Used for state assertions in tests
 
 ### Environment Configuration
 
-The orchestrator uses `load_dotenv(override=False)` in `root_agent.py` to allow tests to set `ENV=test` without being overridden by the `.env` file.
+**Test Mode** (tests/.env):
+```bash
+ENV=test
+AUTO_APPROVE_PAYMENTS=true
+DATABASE_URL=postgresql://... # Test database
+GEMINI_MODEL=gemini-2.5-flash-exp
+```
 
-**Test Mode (ENV=test):**
-- Model: `gemini-2.0-flash-live-001` (supports TEXT modality)
-- No speech_config (allows text-only testing)
-- Response modality: TEXT
-- Auto-approve payments
-
-**Production Mode (ENV=prod):**
-- Model: `gemini-2.5-flash-native-audio-preview-09-2025`
-- With speech_config (audio mode)
-- Response modality: AUDIO
-- Real payment flow
+**Features:**
+- Text-only mode (no speech_config)
+- Payment auto-approval
+- Test database isolation
+- Fast model for testing
 
 ---
 
-## Running Tests
+## Canvas Data
 
-**Prerequisites**: Ensure `uv` is installed ([installation guide](https://github.com/astral-sh/uv))
+### Test Fixtures (`../canvas_data/`)
 
-### Run All E2E Tests
-```bash
-cd tests/e2e
-uv run pytest -v
-```
+| File | Type | Size | Used In |
+|------|------|------|---------|
+| `system_design_whiteboard.png` | PNG | 47KB | Test 3, Test 6 |
+| `code_implementation.txt` | Text | 2KB | Test 4 |
 
-**Expected output**: ✅ 5 PASSED, 1 SKIPPED (~127 seconds)
+### Canvas Strategy
 
-### Run Specific Test Suite
-```bash
-# A2A protocol tests only (2 tests)
-cd tests/e2e
-uv run pytest test_full_interview.py -v
-
-# WebSocket tests only (3 tests)
-cd tests/e2e
-uv run pytest test_orchestrator_websocket.py -v
-```
-
-### Run Single Test
-```bash
-cd tests/e2e
-uv run pytest test_orchestrator_websocket.py::TestOrchestratorWebSocket::test_websocket_connection -v
-```
-
-### Advanced Options
-```bash
-# With detailed output (shows print statements)
-cd tests/e2e
-uv run pytest -v -s
-
-# With debug logging
-cd tests/e2e
-uv run pytest -v -s --log-cli-level=DEBUG
-
-# Stop on first failure
-cd tests/e2e
-uv run pytest -v -x
-```
+| Interview Type | Format | Rationale |
+|----------------|--------|-----------|
+| System Design  | PNG    | Visual architecture, spatial layout |
+| Coding         | Text   | Precise parsing, 10-100x cheaper, faster |
 
 ---
 
@@ -241,164 +274,114 @@ uv run pytest -v -x
 ### ✅ WebSocket Communication
 - Bidirectional streaming
 - Text message handling
-- Message format validation
 - Connection lifecycle
+- Message format validation
 
-### ✅ Orchestrator Functionality
-- Phase routing (routing → intro → interview → closing)
-- Text mode support
-- Agent transfers
-- Session management
+### ✅ Phase Transitions
+- routing → payment → intro → interview → closing
+- State changes at each phase
+- Tool calls at transitions
+- Payment auto-approval
 
-### ✅ Integration
-- Orchestrator → Google Agent (A2A calls)
-- Database session storage
-- Payment flow (auto-approved in test mode)
+### ✅ State Management
+- Session state persistence
+- Candidate info storage
+- Routing decision storage
+- Canvas screenshot persistence
 
----
+### ✅ Tool Calls
+- `confirm_company_selection`
+- `save_candidate_info`
+- Extraction from ADK session events
 
-## Test Coverage
-
-| Component | Coverage | Status |
-|-----------|----------|--------|
-| A2A Layer | 100% | ✅ Complete |
-| WebSocket Layer | 75% | ✅ Core features |
-| Phase Transitions | 60% | ⚠️ Partial |
-| Payment Flow | 50% | ⚠️ Auto-approved only |
-| Database Sync | 0% | ❌ Not tested |
-
----
-
-## Known Limitations
-
-1. **Phase transition test skipped** - Needs full phase logic verification
-2. **Payment flow** - Only tests auto-approval path
-3. **Database sync** - Not explicitly tested in E2E
-4. **Audio mode** - Not tested (requires ENV=prod)
-5. **Error scenarios** - Minimal coverage
+### ✅ Canvas Handling
+- PNG image (base64) for system design
+- Text content for coding
+- Canvas persistence across turns
 
 ---
 
-## Future Enhancements
+## Architecture Verified
 
-- [ ] Complete phase transition tests
-- [ ] Add payment flow tests (with Credentials Provider)
-- [ ] Add database sync verification
-- [ ] Add error scenario coverage
-- [ ] Add audio mode E2E tests
-- [ ] Add performance/load tests
-- [ ] Add concurrent session tests
+```
+┌─────────────────────────────────────────────────────────┐
+│                    E2E Test Suite                       │
+│                   6 tests, 100% pass                    │
+└─────────────────────────────────────────────────────────┘
+                          │
+        ┌─────────────────┴──────────────────┐
+        ▼                                     ▼
+┌──────────────────┐              ┌─────────────────────┐
+│   A2A Tests      │              │  WebSocket Tests    │
+│   (Tests 1-4)    │              │  (Tests 5-6)        │
+└────────┬─────────┘              └──────────┬──────────┘
+         │                                   │
+         ▼                                   ▼
+┌─────────────────────┐          ┌──────────────────────┐
+│  Google Agent       │◄─────────│  Orchestrator        │
+│  (localhost:8001)   │   A2A    │  (localhost:8000)    │
+│                     │  calls   │                      │
+│  - conduct_interview│          │  - WebSocket Server  │
+│  - Session Store    │          │  - Phase Routing     │
+│  - ADK              │          │  - State Management  │
+└─────────────────────┘          └──────────────────────┘
+         │                                   │
+         └───────────────┬───────────────────┘
+                         ▼
+                ┌─────────────────┐
+                │  Neon Database  │
+                │  (Test DB)      │
+                └─────────────────┘
+```
 
 ---
 
 ## Debugging
 
-### Check Server Logs
-Tests capture server output on failure. Look for:
-- Import errors
-- Model configuration issues
-- Database connection problems
+### Check Subprocess Logs
+
+Tests write subprocess stdout/stderr to temp files. On failure, logs are available in error output.
 
 ### Manual Server Testing
+
 ```bash
 # Terminal 1: Start orchestrator
 cd services/interview-orchestrator
-ENV=test python3 -m uvicorn interview_orchestrator.server:app --port 8000
+source .venv/bin/activate
+ENV=test AUTO_APPROVE_PAYMENTS=true python -m uvicorn interview_orchestrator.server:app --port 8000
 
 # Terminal 2: Start Google agent
 cd services/google-agent
 uvicorn main:app --port 8001
 
-# Terminal 3: Run tests
-cd tests/e2e
-uv run pytest -v -s
+# Terminal 3: Run tests with verbose output
+cd tests
+source .venv/bin/activate
+pytest e2e/ -v -s --log-cli-level=INFO
 ```
 
 ### Common Issues
 
-**"Cannot extract voices from a non-audio request"**
-- Solution: Ensure ENV=test or ENV=dev (not prod)
+**Session not found**
+- Session removed from `active_sessions` when WebSocket closes
+- Use `get_session` fixture BEFORE closing WebSocket
+- Check for tool call errors that crash agent task
 
-**"0 messages received"**
-- Check server logs for startup errors
-- Verify .env is loaded correctly
-- Check model configuration
-
----
-
-## Success Metrics
-
-✅ **All A2A tests passing** - Google agent integration works
-✅ **Core WebSocket tests passing** - Orchestrator communication works
-✅ **E2E flow successful** - Full interview flow functional
-✅ **Clean setup/teardown** - No resource leaks
-
-**Total: 5/5 core tests passing (100%)**
+**Tests timeout**
+- Check model is responding (GEMINI_MODEL in .env)
+- Increase timeout in websocket_helper.py
+- Check for agent infinite loops
 
 ---
 
-## Canvas Data Testing
+## Success Criteria
 
-### Overview
+✅ **6/6 tests passing** - All critical paths verified
+✅ **State verification** - Phase transitions tracked
+✅ **Tool call verification** - Agent actions confirmed
+✅ **Canvas support** - Both PNG and text working
+✅ **Multi-turn** - Context maintained across conversations
+✅ **Payment flow** - Auto-approval functional
+✅ **Clean teardown** - No resource leaks
 
-Tests verify remote agents can process canvas data during interviews:
-- **System Design**: PNG images (architecture diagrams)
-- **Coding**: Text content (code implementations)
-
-### Test Fixtures (`../canvas_data/`)
-
-| File | Type | Size | Purpose |
-|------|------|------|---------|
-| `system_design_whiteboard.png` | PNG | 47KB (849x398) | URL shortener architecture from [Grokking System Design](https://github.com/Jeevan-kumar-Raj/Grokking-System-Design) |
-| `code_implementation.txt` | Text | 2KB | Python URL shortener with Redis & PostgreSQL |
-
-### Canvas Tests
-
-#### ✅ `test_system_design_interview_with_png`
-**What it tests:**
-- Multi-turn (3 turns) system design interview
-- PNG diagram sent in turn 1
-- Context maintained across turns 2-3
-- Agent analyzes visual architecture
-
-**Flow:**
-1. Send architecture PNG with message
-2. Discuss caching strategy (no canvas)
-3. Scale to 1B users (no canvas)
-
-**Result:** ✅ PASSED (~9 seconds)
-
-#### ✅ `test_coding_interview_with_text`
-**What it tests:**
-- Multi-turn (3 turns) coding interview
-- Text code sent in turn 1
-- Context maintained across turns 2-3
-- Agent parses and reviews code
-
-**Flow:**
-1. Send Python code as text
-2. Discuss base62 encoding (no canvas)
-3. Edge case discussion (no canvas)
-
-**Result:** ✅ PASSED (~11 seconds)
-
-### Strategy
-
-| Interview Type | Canvas Format | Rationale |
-|----------------|---------------|-----------|
-| System Design  | PNG image     | Spatial layout, visual architecture understanding |
-| Coding         | Text only     | Precise parsing, 10-100x cheaper tokens, faster |
-
-### Running Canvas Tests
-
-```bash
-cd tests
-source .venv/bin/activate
-
-# Both canvas tests
-pytest e2e/test_full_interview.py::TestRemoteExpertIntegration::test_system_design_interview_with_png -v
-pytest e2e/test_full_interview.py::TestRemoteExpertIntegration::test_coding_interview_with_text -v
-
-# All integration tests (includes canvas tests)
-pytest e2e/test_full_interview.py::TestRemoteExpertIntegration -v
-```
+**Total: 100% pass rate**

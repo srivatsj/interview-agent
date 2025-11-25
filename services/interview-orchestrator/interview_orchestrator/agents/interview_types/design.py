@@ -45,20 +45,29 @@ async def ask_remote_expert(query: str, tool_context: ToolContext) -> str:
         logger.info(f"🔗 Calling remote expert at {agent_url} for session {interview_id[:8] if isinstance(interview_id, str) else interview_id}")
         logger.info(f"📝 Query: {query[:100]}...")
 
-        # Call remote agent with conversation context
+        # Build data payload
+        data_payload = {
+            "message": query,
+            "user_id": user_id,
+            "session_id": interview_id,
+        }
+
+        # Include latest canvas screenshot if available
+        # Frontend sends updates every 30-60s, we always send latest to remote expert
+        canvas_screenshot = tool_context.state.get("canvas_screenshot")
+        if canvas_screenshot:
+            data_payload["canvas_screenshot"] = canvas_screenshot
+            logger.info("📷 Including latest canvas screenshot in remote call")
+
+        # Call remote agent with conversation context + latest canvas
         response = await call_remote_skill(
             agent_url=agent_url,
-            text="Conduct interview",  # Command for Google agent executor
-            data={
-                "message": query,
-                "user_id": user_id,
-                "session_id": interview_id,  # Maintains conversation state
-            },
+            text="Conduct interview",
+            data=data_payload,
         )
 
         logger.info(f"✅ Got response from remote expert ({len(response.get('message', ''))} chars)")
 
-        # Extract message from response (works with custom executor)
         return response.get("message", "")
 
     except Exception as e:

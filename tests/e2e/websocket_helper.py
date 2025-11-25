@@ -13,9 +13,7 @@ logger = logging.getLogger(__name__)
 class WebSocketTestClient:
     """Test client for orchestrator WebSocket communication."""
 
-    def __init__(
-        self, user_id: str, interview_id: str, base_url: str = "ws://localhost:8000"
-    ):
+    def __init__(self, user_id: str, interview_id: str, base_url: str = "ws://localhost:8000"):
         self.user_id = user_id
         self.interview_id = interview_id
         self.url = f"{base_url}/ws/{user_id}?interview_id={interview_id}&is_audio=false"
@@ -37,9 +35,19 @@ class WebSocketTestClient:
         await self.ws.send(json.dumps(payload))
         logger.debug(f"📤 Sent: {message[:50]}...")
 
-    async def receive_messages(
-        self, timeout: float = 30.0
-    ) -> AsyncGenerator[dict, None]:
+    async def send_canvas_image(self, image_base64: str):
+        """Send canvas screenshot (PNG) to orchestrator.
+
+        Simulates frontend sending periodic canvas updates.
+        """
+        if not self.ws:
+            raise RuntimeError("WebSocket not connected")
+
+        payload = {"mime_type": "image/png", "data": image_base64}
+        await self.ws.send(json.dumps(payload))
+        logger.info(f"📷 Sent canvas screenshot ({len(image_base64)} bytes)")
+
+    async def receive_messages(self, timeout: float = 30.0) -> AsyncGenerator[dict, None]:
         """Receive messages from orchestrator."""
         if not self.ws:
             raise RuntimeError("WebSocket not connected")

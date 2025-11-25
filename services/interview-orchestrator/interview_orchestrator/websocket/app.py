@@ -72,6 +72,53 @@ async def health():
     return {"status": "healthy", "agent": root_agent.name}
 
 
+@app.get("/debug/session/{user_id}/{interview_id}")
+async def get_session_state(user_id: str, interview_id: str):
+    """Debug endpoint to get session state and events for testing.
+
+    Only enabled in test/dev environments for security.
+    """
+    env = os.getenv("ENV", "prod")
+    if env not in ["test", "dev"]:
+        return {"success": False, "error": "Debug endpoint only available in test/dev mode"}
+
+    session_key = f"{user_id}_{interview_id}"
+    session_data = active_sessions.get(session_key, {})
+    session = session_data.get("session")
+
+    if session:
+        # Extract tool calls from events
+        tool_calls = []
+
+        for event in session.events:
+            # Check various event types that might indicate tool usage
+            event_type = getattr(event, "type", None)
+
+            if event_type in ["tool_call", "tool_use", "function_call"]:
+                tool_name = getattr(event, "name", getattr(event, "function_name", "unknown"))
+                tool_calls.append({
+                    "name": tool_name,
+                    "args": getattr(event, "args", getattr(event, "parameters", {})),
+                })
+            # Also check if content has function calls
+            elif hasattr(event, "content") and event.content:
+                for part in event.content.parts if hasattr(event.content, "parts") else []:
+                    if hasattr(part, "function_call") and part.function_call:
+                        tool_calls.append({
+                            "name": part.function_call.name,
+                            "args": part.function_call.args if hasattr(part.function_call, "args") else {},
+                        })
+
+        return {
+            "success": True,
+            "state": session.state,
+            "tool_calls": tool_calls,
+            "total_events": len(session.events),
+        }
+    else:
+        return {"success": False, "error": "Session not found"}
+
+
 @app.websocket("/ws/{user_id}")
 async def websocket_endpoint(
     websocket: WebSocket, user_id: str, interview_id: str, is_audio: str = "false"

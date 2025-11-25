@@ -78,12 +78,17 @@ async def client_to_agent_messaging(
                 decoded_data = base64.b64decode(data)
                 live_request_queue.send_realtime(Blob(data=decoded_data, mime_type=mime_type))
             elif mime_type == "image/png":
-                decoded_data = base64.b64decode(data)
-                content = Content(
-                    role="user",
-                    parts=[Part(inline_data=Blob(data=decoded_data, mime_type=mime_type))],
-                )
-                live_request_queue.send_content(content=content)
+                # Canvas screenshot (sent periodically by frontend every 30-60s)
+                # Store latest screenshot in session - remote agents will use it
+                if session_key in active_sessions:
+                    session = active_sessions[session_key]["session"]
+                    session.state["canvas_screenshot"] = data  # Keep latest base64
+                    logger.info("📷 Updated canvas screenshot in session state")
+                else:
+                    logger.warning(f"Session {session_key} not found, cannot store canvas")
+
+                # Don't send image to root agent - it's for remote experts only
+                # Root agent doesn't need to process images
             else:
                 raise ValueError(f"Mime type not supported: {mime_type}")
 

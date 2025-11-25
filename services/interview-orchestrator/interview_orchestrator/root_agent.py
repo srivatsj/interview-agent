@@ -30,19 +30,25 @@ def _get_coordinator_instruction(ctx: ReadonlyContext) -> str:
     Deterministic routing based on interview_phase state.
     """
     phase = ctx.session.state.get("interview_phase", "routing")
+    logger.info(f"🎯 COORDINATOR: Current phase = '{phase}', routing to appropriate agent")
 
     if phase == "routing":
+        logger.info("🎯 COORDINATOR: Transferring to routing_agent")
         return (
             "The user has started the conversation. TRANSFER to routing_agent "
             "immediately, using the 'transfer_to_agent' tool, to begin the interview."
         )
     elif phase == "intro":
+        logger.info("🎯 COORDINATOR: Transferring to intro_agent")
         return "TRANSFER to intro_agent immediately."
     elif phase == "interview":
+        logger.info("🎯 COORDINATOR: Transferring to interview_agent")
         return "TRANSFER to interview_agent immediately."
     elif phase == "closing":
+        logger.info("🎯 COORDINATOR: Transferring to closing_agent")
         return "TRANSFER to closing_agent immediately."
     else:  # done
+        logger.info("🎯 COORDINATOR: Session complete")
         return "Session complete. Say goodbye!"
 
 

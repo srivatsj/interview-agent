@@ -38,8 +38,8 @@ async def start_agent_session(user_id: str, interview_id: str, is_audio: bool = 
     # Create a Runner per session - InMemory for real-time performance
     runner = InMemoryRunner(app_name=APP_NAME, agent=agent)
 
-    # Create session key
-    session_key = f"{user_id}:{interview_id}"
+    # Create session key (use underscore for consistency with WebSocket URL and state lookups)
+    session_key = f"{user_id}_{interview_id}"
 
     # Create a Session with user_id and interview_id in state
     session = await runner.session_service.create_session(
@@ -49,6 +49,7 @@ async def start_agent_session(user_id: str, interview_id: str, is_audio: bool = 
             "user_id": user_id,  # Store for payment flow
             "interview_id": interview_id,
             "session_key": session_key,  # Store for tool access
+            "interview_phase": "routing",  # Initialize phase for flow tracking
         },
     )
 
@@ -59,6 +60,8 @@ async def start_agent_session(user_id: str, interview_id: str, is_audio: bool = 
         "user_id": user_id,
         "interview_id": interview_id,
     }
+
+    logger.info(f"Session created: {session_key}")
 
     # Create a LiveRequestQueue for this session
     live_request_queue = LiveRequestQueue()
@@ -109,7 +112,7 @@ async def sync_session_to_database(user_id: str, interview_id: str) -> dict:
     Returns:
         dict with sync status and statistics
     """
-    session_key = f"{user_id}:{interview_id}"
+    session_key = f"{user_id}_{interview_id}"
 
     # Check if session exists
     if session_key not in active_sessions:
@@ -194,6 +197,7 @@ async def sync_session_to_database(user_id: str, interview_id: str) -> dict:
 
         # Cleanup - remove from active sessions
         del active_sessions[session_key]
+        logger.info(f"Session removed from active sessions: {session_key}")
 
         return {
             "success": True,

@@ -5,7 +5,6 @@ import logging
 from pathlib import Path
 
 import pytest
-
 from a2a_helper import send_a2a_message
 
 logger = logging.getLogger(__name__)
@@ -185,7 +184,10 @@ class TestRemoteExpertIntegration:
             agent_url="http://localhost:8001",
             text="Conduct interview",
             data={
-                "message": "I'm using base62 encoding for the short codes. Is this approach scalable?",
+                "message": (
+                    "I'm using base62 encoding for the short codes. "
+                    "Is this approach scalable?"
+                ),
                 "user_id": "test_user",
                 "session_id": session_id,
             },
