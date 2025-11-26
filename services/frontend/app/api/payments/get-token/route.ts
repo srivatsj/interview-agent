@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { userPaymentMethods } from "@/db/schema/payments";
 import { eq } from "drizzle-orm";
+import type { PaymentToken } from "@/lib/ap2/types";
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,12 +32,15 @@ export async function POST(request: NextRequest) {
     const paymentMethodId = userPayment[0].defaultPaymentMethodId;
     console.log(`✅ Payment method found: ${paymentMethodId}`);
 
-    // Return payment token (encrypted reference to payment method)
+    // Return AP2-compliant payment token (encrypted reference to payment method)
     // In production, this should be encrypted/signed
-    const token = {
+    const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+    const token: PaymentToken = {
       payment_method_id: paymentMethodId,
       stripe_customer_id: userPayment[0].stripeCustomerId,
       issued_at: new Date().toISOString(),
+      credentials_provider_url: `${frontendUrl}/api/payments`, // AP2 spec requirement
     };
 
     return NextResponse.json({ token });

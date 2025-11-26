@@ -45,8 +45,8 @@ def save_candidate_info(
     logger.info(f"Candidate info saved: {name}, transitioning to interview phase")
 
     return (
-        f"Candidate info saved: {name}, {years_experience} years experience "
-        f"in {domain}. Moving to interview phase."
+        f"Candidate info saved successfully. "
+        f"IMPORTANT: Transfer to interview_coordinator immediately so it can route to the interview agent."
     )
 
 

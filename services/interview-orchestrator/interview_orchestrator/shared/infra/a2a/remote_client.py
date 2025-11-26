@@ -134,7 +134,9 @@ def extract_data_from_task(task: Task) -> dict[str, Any]:
     Raises:
         RuntimeError: If no data found
     """
-    logger.info(f"🔍 Extracting data from task (status: {task.status.state if task.status else 'NO_STATUS'})")
+    logger.info(
+        f"🔍 Extracting data from task (status: {task.status.state if task.status else 'NO_STATUS'})"
+    )
 
     if not task.artifacts:
         logger.error(f"❌ No artifacts in response (task_id: {task.task_id})")
@@ -144,9 +146,9 @@ def extract_data_from_task(task: Task) -> dict[str, Any]:
     logger.info(f"📦 Found {len(task.artifacts)} artifact(s)")
 
     for i, artifact in enumerate(task.artifacts):
-        logger.info(f"📦 Artifact #{i+1}: {len(artifact.parts)} part(s)")
+        logger.info(f"📦 Artifact #{i + 1}: {len(artifact.parts)} part(s)")
         for j, part in enumerate(artifact.parts):
-            logger.info(f"  Part #{j+1}: kind={part.root.kind}, type={type(part.root).__name__}")
+            logger.info(f"  Part #{j + 1}: kind={part.root.kind}, type={type(part.root).__name__}")
             if part.root.kind == "data" and isinstance(part.root.data, dict):
                 data_keys = list(part.root.data.keys())
                 logger.info(f"✅ Extracted data with keys: {data_keys}")

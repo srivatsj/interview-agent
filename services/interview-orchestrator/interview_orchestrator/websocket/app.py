@@ -96,18 +96,24 @@ async def get_session_state(user_id: str, interview_id: str):
 
             if event_type in ["tool_call", "tool_use", "function_call"]:
                 tool_name = getattr(event, "name", getattr(event, "function_name", "unknown"))
-                tool_calls.append({
-                    "name": tool_name,
-                    "args": getattr(event, "args", getattr(event, "parameters", {})),
-                })
+                tool_calls.append(
+                    {
+                        "name": tool_name,
+                        "args": getattr(event, "args", getattr(event, "parameters", {})),
+                    }
+                )
             # Also check if content has function calls
             elif hasattr(event, "content") and event.content:
                 for part in event.content.parts if hasattr(event.content, "parts") else []:
                     if hasattr(part, "function_call") and part.function_call:
-                        tool_calls.append({
-                            "name": part.function_call.name,
-                            "args": part.function_call.args if hasattr(part.function_call, "args") else {},
-                        })
+                        tool_calls.append(
+                            {
+                                "name": part.function_call.name,
+                                "args": part.function_call.args
+                                if hasattr(part.function_call, "args")
+                                else {},
+                            }
+                        )
 
         return {
             "success": True,

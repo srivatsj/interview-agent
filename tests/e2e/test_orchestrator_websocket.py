@@ -40,7 +40,23 @@ class TestOrchestratorCriticalUserJourneys:
 
             # Phase 2: Payment (auto-approved in test mode)
             await client.send_and_wait("I'd like a Google system design interview")
+
+            # Small delay to ensure state is persisted
+            import asyncio
+            await asyncio.sleep(0.5)
+
             session = get_session(test_user_id, test_interview_id)
+
+            # Debug: Print session state if test fails
+            logger.info(f"🔍 Session state after payment request: {session['state']}")
+            logger.info(f"🔍 Tool calls: {[tc['name'] for tc in session['tool_calls']]}")
+
+            # Find confirm_company_selection tool call and check its status
+            for tc in session['tool_calls']:
+                if tc['name'] == 'confirm_company_selection':
+                    logger.info(f"🔍 confirm_company_selection details: {tc}")
+                    break
+
             assert session["state"]["interview_phase"] == "intro"
             assert session["state"]["payment_completed"] is True
             assert session["state"]["routing_decision"]["company"] == "google"
@@ -48,6 +64,11 @@ class TestOrchestratorCriticalUserJourneys:
             # Verify payment tool was called
             tool_names = [tc["name"] for tc in session["tool_calls"]]
             assert "confirm_company_selection" in tool_names
+
+            # NEW: Verify payment proof is stored in session
+            assert "payment_proof" in session["state"], "payment_proof should be stored after payment"
+            assert session["state"]["payment_proof"]["payment_id"], "payment_proof should have payment_id"
+            logger.info(f"✅ Payment proof stored: {session['state']['payment_proof']['payment_id']}")
 
             # Phase 3: Intro → Interview (collect candidate info via multi-turn conversation)
             await client.send_and_wait("My name is John")
@@ -73,6 +94,10 @@ class TestOrchestratorCriticalUserJourneys:
             # Verify candidate info tool was called
             tool_names = [tc["name"] for tc in session["tool_calls"]]
             assert "save_candidate_info" in tool_names, f"save_candidate_info not in {tool_names}"
+
+            # NEW: Verify remote session NOT initialized yet (no remote calls in intro phase)
+            assert "remote_session_initialized" not in session["state"] or not session["state"]["remote_session_initialized"], \
+                "remote_session_initialized should not be set during intro phase"
 
             logger.info("✅ Phase transitions verified: routing → payment → intro → design")
 
@@ -129,6 +154,11 @@ class TestOrchestratorCriticalUserJourneys:
             assert session["state"]["canvas_screenshot"] == canvas_b64
             text1 = client.get_text_responses()
             assert len(text1) > 0
+
+            # NEW: Verify remote_session_initialized flag is set after first remote call
+            assert session["state"]["remote_session_initialized"] is True, \
+                "remote_session_initialized should be True after first call to remote expert"
+            logger.info("✅ Remote session initialized after first call (payment receipt sent)")
 
             # Phase 3: Design - Turn 2 (verify context and canvas persistence)
             client.messages.clear()

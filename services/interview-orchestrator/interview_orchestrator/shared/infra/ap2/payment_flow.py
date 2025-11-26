@@ -7,7 +7,8 @@ import os
 import uuid
 
 import httpx
-from ap2.types.mandate import PaymentMandate, PaymentMandateContents
+from ap2.types.mandate import PAYMENT_MANDATE_DATA_KEY, PaymentMandate, PaymentMandateContents
+from ap2.types.payment_receipt import PAYMENT_RECEIPT_DATA_KEY
 from ap2.types.payment_request import (
     PaymentCurrencyAmount,
     PaymentItem,
@@ -180,6 +181,6 @@ async def _charge_via_merchant(agent_url: str, payment_mandate: dict) -> dict:
     response = await call_remote_skill(
         agent_url=agent_url,
         text="Process payment",
-        data={"payment_mandate": payment_mandate},
+        data={PAYMENT_MANDATE_DATA_KEY: payment_mandate},
     )
-    return response.get("payment_receipt", {})
+    return response.get(PAYMENT_RECEIPT_DATA_KEY, {})

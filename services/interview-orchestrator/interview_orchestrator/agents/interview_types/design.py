@@ -2,6 +2,7 @@
 
 import logging
 
+from ap2.types.payment_receipt import PAYMENT_RECEIPT_DATA_KEY
 from google.adk.agents import Agent
 from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.tools import ToolContext
@@ -42,7 +43,9 @@ async def ask_remote_expert(query: str, tool_context: ToolContext) -> str:
         interview_id = tool_context.state.get("interview_id", tool_context.invocation_id)
         user_id = tool_context.state.get("user_id", "unknown")
 
-        logger.info(f"🔗 Calling remote expert at {agent_url} for session {interview_id[:8] if isinstance(interview_id, str) else interview_id}")
+        logger.info(
+            f"🔗 Calling remote expert at {agent_url} for session {interview_id[:8] if isinstance(interview_id, str) else interview_id}"
+        )
         logger.info(f"📝 Query: {query[:100]}...")
 
         # Build data payload
@@ -51,6 +54,12 @@ async def ask_remote_expert(query: str, tool_context: ToolContext) -> str:
             "user_id": user_id,
             "session_id": interview_id,
         }
+
+        # Always include payment proof - remote agent decides whether to use it
+        payment_proof = tool_context.state.get("payment_proof")
+        if payment_proof:
+            data_payload[PAYMENT_RECEIPT_DATA_KEY] = payment_proof
+            logger.info("📋 Including payment receipt in remote call")
 
         # Include latest canvas screenshot if available
         # Frontend sends updates every 30-60s, we always send latest to remote expert
@@ -66,7 +75,9 @@ async def ask_remote_expert(query: str, tool_context: ToolContext) -> str:
             data=data_payload,
         )
 
-        logger.info(f"✅ Got response from remote expert ({len(response.get('message', ''))} chars)")
+        logger.info(
+            f"✅ Got response from remote expert ({len(response.get('message', ''))} chars)"
+        )
 
         return response.get("message", "")
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { db } from "@/db";
 import { ap2Transactions } from "@/db/schema/payments";
+import type { PaymentReceipt, PaymentStatus } from "@/lib/ap2/types";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-11-17.clover",
@@ -63,15 +64,20 @@ export async function POST(request: NextRequest) {
 
     if (paymentIntent.status !== "succeeded") {
       console.error(`❌ Payment failed: ${paymentIntent.status}`);
-      return NextResponse.json({
-        payment_receipt: {
-          payment_id: paymentIntent.id,
-          payment_status: {
-            status: "failed",
-            error: `Payment status: ${paymentIntent.status}`,
-          },
+      const failureStatus: PaymentStatus = {
+        status: "failed",
+        details: {
+          failure_message: `Payment status: ${paymentIntent.status}`,
         },
-      });
+      };
+      const failureReceipt: PaymentReceipt = {
+        payment_id: paymentIntent.id,
+        payment_mandate_id: payment_mandate.payment_mandate_id,
+        timestamp: new Date().toISOString(),
+        amount: totalAmount,
+        payment_status: failureStatus,
+      };
+      return NextResponse.json({ payment_receipt: failureReceipt });
     }
 
     console.log(`✅ Payment succeeded: ${paymentIntent.id}`);
@@ -89,41 +95,54 @@ export async function POST(request: NextRequest) {
 
     console.log("💾 Transaction stored in database");
 
-    // Return payment receipt
-    const receipt = {
-      payment_receipt: {
-        payment_id: paymentIntent.id,
-        payment_mandate_id: payment_mandate.payment_mandate_id,
-        cart_mandate_id: cartMandateId,
-        amount: totalAmount,
-        payment_status: {
-          status: "success",
-          timestamp: new Date().toISOString(),
-        },
-        merchant_agent: payment_mandate.merchant_agent,
+    // Return AP2-compliant payment receipt
+    const paymentStatus: PaymentStatus = {
+      status: "success",
+      details: {
+        merchant_confirmation_id: paymentIntent.id,
+        psp_confirmation_id: paymentIntent.id,
       },
     };
 
-    return NextResponse.json(receipt);
+    const receipt: PaymentReceipt = {
+      payment_id: paymentIntent.id,
+      payment_mandate_id: payment_mandate.payment_mandate_id,
+      timestamp: new Date().toISOString(),
+      amount: totalAmount,
+      payment_status: paymentStatus,
+      payment_method_details: {
+        method_name: payment_mandate.payment_response?.method_name || "CARD",
+        last4: (paymentIntent.payment_method as any)?.card?.last4,
+        brand: (paymentIntent.payment_method as any)?.card?.brand,
+      },
+    };
+
+    return NextResponse.json({ payment_receipt: receipt });
   } catch (error: unknown) {
     console.error("❌ Error executing payment:", error);
 
-    // Handle specific Stripe errors
+    // Handle specific Stripe errors with AP2-compliant response
     if (
       error &&
       typeof error === "object" &&
       "type" in error &&
       error.type === "StripeCardError"
     ) {
-      return NextResponse.json({
-        payment_receipt: {
-          payment_id: "",
-          payment_status: {
-            status: "failed",
-            error: "message" in error ? String(error.message) : "Card error",
-          },
+      const errorMessage = "message" in error ? String(error.message) : "Card error";
+      const errorStatus: PaymentStatus = {
+        status: "error",
+        details: {
+          error_message: errorMessage,
         },
-      });
+      };
+      const errorReceipt: PaymentReceipt = {
+        payment_id: "",
+        payment_mandate_id: "",
+        timestamp: new Date().toISOString(),
+        amount: { currency: "USD", value: 0 },
+        payment_status: errorStatus,
+      };
+      return NextResponse.json({ payment_receipt: errorReceipt });
     }
 
     return NextResponse.json(

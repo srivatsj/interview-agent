@@ -13,8 +13,8 @@ from dotenv import load_dotenv
 
 from .websocket import app, start_server
 
-# Load environment variables
-load_dotenv()
+# Load environment variables (don't override existing env vars from tests)
+load_dotenv(override=False)
 
 # Configure logging - suppress verbose logs
 logging.basicConfig(

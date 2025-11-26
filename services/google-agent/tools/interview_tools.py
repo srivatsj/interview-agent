@@ -6,12 +6,18 @@ from typing import Any
 
 from a2a.server.tasks import TaskUpdater
 from a2a.types import DataPart, Part, Task, TaskState, TextPart
+from ap2.types.payment_receipt import PAYMENT_RECEIPT_DATA_KEY, PaymentReceipt, Success
 from google.adk.agents import LlmAgent
+from google.adk.sessions import InMemorySessionService
 from google.genai import types as genai_types
+from pydantic import ValidationError
 
 from utils import find_data_part
 
 logger = logging.getLogger(__name__)
+
+# Session service for payment verification tracking
+_session_service = InMemorySessionService()
 
 # Interview agent
 interview_agent = LlmAgent(
@@ -65,14 +71,15 @@ async def conduct_interview(
     Supports multimodal input:
     - System design: PNG screenshots (spatial diagrams)
     - Code: Text content (precise parsing)
+
+    Security: Verifies payment once per session before allowing interview access.
     """
     user_message = find_data_part("message", data_parts)
     user_id = find_data_part("user_id", data_parts) or updater.context_id
     session_id = find_data_part("session_id", data_parts) or updater.context_id
 
-    # Canvas data
-    canvas_screenshot = find_data_part("canvas_screenshot", data_parts)  # PNG for system design
-    canvas_content = find_data_part("canvas_content", data_parts)  # Text for code
+    # Canvas data (always sent as screenshot/image, whether diagrams or code)
+    canvas_screenshot = find_data_part("canvas_screenshot", data_parts)
 
     if not user_message:
         await updater.failed(
@@ -80,20 +87,83 @@ async def conduct_interview(
         )
         return
 
+    # --- Payment Verification (once per session) ---
+    session = await _session_service.get_session(
+        app_name="google_interview",
+        user_id=user_id,
+        session_id=session_id,
+    )
+
+    if session is None:
+        # First call - create session and verify payment
+        session = await _session_service.create_session(
+            app_name="google_interview",
+            user_id=user_id,
+            session_id=session_id,
+        )
+
+    if not session.state.get("payment_verified"):
+        # Verify payment receipt
+        payment_receipt_data = find_data_part(PAYMENT_RECEIPT_DATA_KEY, data_parts)
+
+        if not payment_receipt_data:
+            logger.error(f"❌ Payment verification required for session {session_id[:8]}")
+            await updater.failed(
+                message=updater.new_agent_message(
+                    parts=[
+                        Part(
+                            root=TextPart(text="Payment verification required to access interview")
+                        )
+                    ]
+                )
+            )
+            return
+
+        try:
+            payment_receipt = PaymentReceipt.model_validate(payment_receipt_data)
+        except ValidationError as e:
+            logger.error(f"❌ Invalid payment receipt: {e}")
+            await updater.failed(
+                message=updater.new_agent_message(
+                    parts=[Part(root=TextPart(text=f"Invalid payment receipt: {str(e)}"))]
+                )
+            )
+            return
+
+        # Check payment status is Success (not Error or Failure)
+        if not isinstance(payment_receipt.payment_status, Success):
+            logger.error(f"❌ Payment not successful for session {session_id[:8]}")
+            await updater.failed(
+                message=updater.new_agent_message(
+                    parts=[
+                        Part(
+                            root=TextPart(
+                                text="Payment not successful. Please complete payment first."
+                            )
+                        )
+                    ]
+                )
+            )
+            return
+
+        # Store payment verification in session
+        session.state["payment_verified"] = True
+        session.state["payment_id"] = payment_receipt.payment_id
+        session.state["payment_amount"] = payment_receipt.amount.value
+        logger.info(
+            f"✅ Payment verified for session {session_id[:8]} (payment_id: {payment_receipt.payment_id})"
+        )
+
+    else:
+        logger.info(f"✅ Session {session_id[:8]} already payment-verified")
+
     logger.info(f"🎤 Interview turn for session {session_id[:8]}")
     if canvas_screenshot:
         logger.info(f"📷 Canvas screenshot included ({len(canvas_screenshot)} bytes)")
-    if canvas_content:
-        logger.info(f"📝 Canvas content included ({len(canvas_content)} chars)")
 
     try:
         # Build multimodal message parts
         message_parts = [genai_types.Part(text=user_message)]
-
-        # Add canvas content as text if provided
-        if canvas_content:
-            canvas_text = f"\n\n[Canvas Content]\n{canvas_content}"
-            message_parts.append(genai_types.Part(text=canvas_text))
 
         # Add canvas screenshot as inline image if provided
         if canvas_screenshot:
@@ -106,9 +176,7 @@ async def conduct_interview(
                 # Add image part (Gemini supports inline images)
                 message_parts.append(
                     genai_types.Part(
-                        inline_data=genai_types.Blob(
-                            mime_type="image/png", data=image_bytes
-                        )
+                        inline_data=genai_types.Blob(mime_type="image/png", data=image_bytes)
                     )
                 )
                 logger.info("✅ Canvas screenshot decoded and added to message")

@@ -78,7 +78,7 @@ async def start_agent_session(user_id: str, interview_id: str, is_audio: bool = 
             streaming_mode="bidi",
             response_modalities=["AUDIO"],
             output_audio_transcription={},  # Get text transcription of agent audio
-            input_audio_transcription={},   # Get text transcription of user audio
+            input_audio_transcription={},  # Get text transcription of user audio
         )
     else:
         # Text mode: standard Gemini model with text I/O

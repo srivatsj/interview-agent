@@ -2,6 +2,8 @@
 
 import logging
 
+from ap2.types.mandate import CART_MANDATE_DATA_KEY
+
 from ...infra.a2a.remote_client import call_remote_skill
 
 logger = logging.getLogger(__name__)
@@ -29,10 +31,10 @@ async def get_cart_mandate(
             text="Create cart for interview",
             data={"interview_type": interview_type},
         )
-        cart_mandate = response.get("cart_mandate")
+        cart_mandate = response.get(CART_MANDATE_DATA_KEY)
         if not cart_mandate:
-            logger.error("❌ Remote agent did not return cart_mandate")
-            return None, "Error: Remote agent did not return cart_mandate"
+            logger.error(f"❌ Remote agent did not return {CART_MANDATE_DATA_KEY}")
+            return None, f"Error: Remote agent did not return {CART_MANDATE_DATA_KEY}"
 
         # Extract price from AP2 structure
         cart_contents = cart_mandate.get("contents", {})

@@ -11,7 +11,13 @@ import httpx
 import jwt
 from a2a.server.tasks import TaskUpdater
 from a2a.types import DataPart, Part, Task, TextPart
-from ap2.types.mandate import CartContents, CartMandate
+from ap2.types.mandate import (
+    CART_MANDATE_DATA_KEY,
+    PAYMENT_MANDATE_DATA_KEY,
+    CartContents,
+    CartMandate,
+)
+from ap2.types.payment_receipt import PAYMENT_RECEIPT_DATA_KEY
 from ap2.types.payment_request import (
     PaymentCurrencyAmount,
     PaymentDetailsInit,
@@ -88,7 +94,7 @@ async def create_cart_for_interview(
     logger.info(f"✅ Created AP2 cart: {cart_id} for ${price}")
 
     await updater.add_artifact(
-        [Part(root=DataPart(data={"cart_mandate": cart_mandate.model_dump()}))]
+        [Part(root=DataPart(data={CART_MANDATE_DATA_KEY: cart_mandate.model_dump()}))]
     )
     await updater.complete()
 
@@ -126,7 +132,7 @@ async def process_payment(
 
     Deterministic tool - no LLM involved.
     """
-    payment_mandate = find_data_part("payment_mandate", data_parts)
+    payment_mandate = find_data_part(PAYMENT_MANDATE_DATA_KEY, data_parts)
 
     if not payment_mandate:
         await updater.failed(
@@ -155,7 +161,9 @@ async def process_payment(
         payment_id = payment_receipt.get("payment_id", "unknown")
         logger.info(f"✅ Payment successful: {payment_id}")
 
-        await updater.add_artifact([Part(root=DataPart(data={"payment_receipt": payment_receipt}))])
+        await updater.add_artifact(
+            [Part(root=DataPart(data={PAYMENT_RECEIPT_DATA_KEY: payment_receipt}))]
+        )
         await updater.complete()
 
     except httpx.HTTPStatusError as e:
@@ -167,7 +175,9 @@ async def process_payment(
                 "error": f"Payment processing failed: {e.response.text}",
             },
         }
-        await updater.add_artifact([Part(root=DataPart(data={"payment_receipt": error_receipt}))])
+        await updater.add_artifact(
+            [Part(root=DataPart(data={PAYMENT_RECEIPT_DATA_KEY: error_receipt}))]
+        )
         await updater.complete()
 
     except Exception as e:
@@ -179,5 +189,7 @@ async def process_payment(
                 "error": str(e),
             },
         }
-        await updater.add_artifact([Part(root=DataPart(data={"payment_receipt": error_receipt}))])
+        await updater.add_artifact(
+            [Part(root=DataPart(data={PAYMENT_RECEIPT_DATA_KEY: error_receipt}))]
+        )
         await updater.complete()

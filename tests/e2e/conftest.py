@@ -22,7 +22,7 @@ google_agent_path = services_path / "google-agent"
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def google_agent_server():
     """Start Google agent server via subprocess."""
     logger.info("🚀 Starting Google agent server...")
@@ -33,8 +33,11 @@ def google_agent_server():
     stdout_file = tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix="_google_stdout.log")
     stderr_file = tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix="_google_stderr.log")
 
+    # Use uvicorn from service's venv
+    uvicorn_bin = google_agent_path / ".venv" / "bin" / "uvicorn"
+
     process = subprocess.Popen(
-        ["uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8001"],
+        [str(uvicorn_bin), "main:app", "--host", "127.0.0.1", "--port", "8001"],
         cwd=google_agent_path,
         stdout=stdout_file,
         stderr=stderr_file,
@@ -71,19 +74,19 @@ def google_agent_server():
         process.wait()
     logger.info("✅ Google agent server stopped")
 
-    # Clean up temp log files
+    # Keep log files for debugging (don't delete)
     try:
         if hasattr(process, "_stdout_file"):
             process._stdout_file.close()
-            os.unlink(process._stdout_file.name)
+            logger.info(f"📝 Google agent stdout: {process._stdout_file.name}")
         if hasattr(process, "_stderr_file"):
             process._stderr_file.close()
-            os.unlink(process._stderr_file.name)
+            logger.info(f"📝 Google agent stderr: {process._stderr_file.name}")
     except Exception as e:
-        logger.warning(f"Could not clean up Google agent log files: {e}")
+        logger.warning(f"Could not close Google agent log files: {e}")
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def orchestrator_server():
     """Start orchestrator WebSocket server via subprocess."""
     logger.info("🚀 Starting orchestrator server...")
@@ -188,16 +191,16 @@ def orchestrator_server():
         process.wait()
     logger.info("✅ Orchestrator server stopped")
 
-    # Clean up temp log files
+    # Keep log files for debugging (don't delete)
     try:
         if hasattr(process, "_stdout_file"):
             process._stdout_file.close()
-            os.unlink(process._stdout_file.name)
+            logger.info(f"📝 Orchestrator stdout: {process._stdout_file.name}")
         if hasattr(process, "_stderr_file"):
             process._stderr_file.close()
-            os.unlink(process._stderr_file.name)
+            logger.info(f"📝 Orchestrator stderr: {process._stderr_file.name}")
     except Exception as e:
-        logger.warning(f"Could not clean up log files: {e}")
+        logger.warning(f"Could not close log files: {e}")
 
     # Clean up database after orchestrator is fully stopped
     logger.info("🧹 Cleaning up test database...")

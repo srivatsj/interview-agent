@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import uuid
+from datetime import datetime, timezone
 
 from google.adk.agents import Agent
 from google.adk.agents.readonly_context import ReadonlyContext
@@ -71,7 +72,22 @@ async def confirm_company_selection(
 
     if auto_approve and env in ["test", "dev"]:
         logger.info("🧪 Test mode: Auto-approving payment without user confirmation")
+
+        # Create mock payment receipt for test mode
+        mock_payment_receipt = {
+            "payment_id": f"test_auto_approve_{uuid.uuid4().hex[:8]}",
+            "payment_mandate_id": f"test_mandate_{uuid.uuid4().hex[:8]}",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "amount": {"currency": "USD", "value": price},
+            "payment_status": {
+                "merchant_confirmation_id": f"test_auto_{uuid.uuid4().hex[:8]}",
+                "psp_confirmation_id": "test_stripe_auto",
+            },
+            "payment_method_details": {"method_name": "TEST_AUTO_APPROVE"},
+        }
+
         tool_context.state["payment_completed"] = True
+        tool_context.state["payment_proof"] = mock_payment_receipt
         tool_context.state["routing_decision"] = RoutingDecision(
             company=company.lower(),
             interview_type=interview_type.lower(),
@@ -180,8 +196,7 @@ async def confirm_company_selection(
     if error:
         logger.error(f"💳 Payment processing failed: {error}")
         return (
-            f"PAYMENT_FAILED: {error} "
-            f"Ask user if they want to retry or choose a different option."
+            f"PAYMENT_FAILED: {error} Ask user if they want to retry or choose a different option."
         )
 
     # Store payment proof and routing decision

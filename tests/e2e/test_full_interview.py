@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from a2a_helper import send_a2a_message
+from ap2.types.payment_receipt import PAYMENT_RECEIPT_DATA_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,17 @@ class TestRemoteExpertIntegration:
         google_agent_server,
         test_interview_id,
     ):
-        """Test direct call to Google agent works."""
+        """Test direct call to Google agent works (with payment verification)."""
+        valid_payment_receipt = {
+            "payment_id": "test_direct_call",
+            "payment_mandate_id": "test_mandate",
+            "timestamp": "2025-01-01T00:00:00Z",
+            "amount": {"currency": "USD", "value": 3.00},
+            "payment_status": {
+                "merchant_confirmation_id": "test_direct_call",
+            },
+        }
+
         response = await send_a2a_message(
             agent_url="http://localhost:8001",
             text="Conduct interview",
@@ -50,6 +61,7 @@ class TestRemoteExpertIntegration:
                 "message": "Hi, I'm ready for the interview",
                 "user_id": "test_user",
                 "session_id": test_interview_id,
+                PAYMENT_RECEIPT_DATA_KEY: valid_payment_receipt,
             },
         )
 
@@ -63,10 +75,27 @@ class TestRemoteExpertIntegration:
         google_agent_server,
         test_interview_id,
     ):
-        """Test Google agent maintains conversation context."""
+        """Test Google agent maintains conversation context AND payment verification.
+
+        Verifies:
+        - First call requires payment receipt
+        - Subsequent calls work without payment (session verified)
+        """
         session_id = test_interview_id
 
-        # Turn 1
+        # Turn 1: Include payment receipt (required for first call)
+        valid_payment_receipt = {
+            "payment_id": "test_payment_123",
+            "payment_mandate_id": "test_mandate_456",
+            "timestamp": "2025-01-01T00:00:00Z",
+            "amount": {"currency": "USD", "value": 3.00},
+            "payment_status": {
+                "merchant_confirmation_id": "test_payment_123",
+                "psp_confirmation_id": "stripe_test_789",
+            },
+            "payment_method_details": {"method_name": "CARD"},
+        }
+
         response1 = await send_a2a_message(
             agent_url="http://localhost:8001",
             text="Conduct interview",
@@ -74,12 +103,13 @@ class TestRemoteExpertIntegration:
                 "message": "Hi, I'm ready",
                 "user_id": "test_user",
                 "session_id": session_id,
+                PAYMENT_RECEIPT_DATA_KEY: valid_payment_receipt,  # Payment required on first call
             },
         )
         assert "message" in response1
-        logger.info("✅ Google agent turn 1")
+        logger.info("✅ Google agent turn 1 (with payment verification)")
 
-        # Turn 2 - same session
+        # Turn 2 - same session (NO payment receipt needed, session verified)
         response2 = await send_a2a_message(
             agent_url="http://localhost:8001",
             text="Conduct interview",
@@ -87,12 +117,13 @@ class TestRemoteExpertIntegration:
                 "message": "I'd like to clarify the requirements",
                 "user_id": "test_user",
                 "session_id": session_id,
+                # No payment receipt - should work because session is verified
             },
         )
         assert "message" in response2
-        logger.info("✅ Google agent turn 2 - context maintained")
+        logger.info("✅ Google agent turn 2 - context maintained (no payment needed)")
 
-        # Turn 3 - same session
+        # Turn 3 - same session (still no payment needed)
         response3 = await send_a2a_message(
             agent_url="http://localhost:8001",
             text="Conduct interview",
@@ -103,7 +134,7 @@ class TestRemoteExpertIntegration:
             },
         )
         assert "message" in response3
-        logger.info("✅ Google agent turn 3 - conversation flow maintained")
+        logger.info("✅ Google agent turn 3 - payment verification gates access once per session")
 
     async def test_system_design_interview_with_png(
         self,
@@ -114,7 +145,16 @@ class TestRemoteExpertIntegration:
         whiteboard_image = load_canvas_image("system_design_whiteboard.png")
         session_id = test_interview_id
 
-        # Turn 1: Show architecture diagram
+        # Payment receipt for first call
+        valid_payment_receipt = {
+            "payment_id": "test_png_interview",
+            "payment_mandate_id": "test_mandate",
+            "timestamp": "2025-01-01T00:00:00Z",
+            "amount": {"currency": "USD", "value": 3.00},
+            "payment_status": {"merchant_confirmation_id": "test_png_interview"},
+        }
+
+        # Turn 1: Show architecture diagram (with payment)
         response1 = await send_a2a_message(
             agent_url="http://localhost:8001",
             text="Conduct interview",
@@ -123,11 +163,12 @@ class TestRemoteExpertIntegration:
                 "user_id": "test_user",
                 "session_id": session_id,
                 "canvas_screenshot": whiteboard_image,
+                PAYMENT_RECEIPT_DATA_KEY: valid_payment_receipt,
             },
         )
         assert response1 is not None
         assert "message" in response1
-        logger.info("✅ Turn 1: Agent received architecture diagram")
+        logger.info("✅ Turn 1: Agent received architecture diagram (with payment)")
 
         # Turn 2: Discuss specific component
         response2 = await send_a2a_message(
@@ -164,7 +205,16 @@ class TestRemoteExpertIntegration:
         code_content = load_canvas_content("code_implementation.txt")
         session_id = test_interview_id
 
-        # Turn 1: Share implementation
+        # Payment receipt for first call
+        valid_payment_receipt = {
+            "payment_id": "test_coding_interview",
+            "payment_mandate_id": "test_mandate",
+            "timestamp": "2025-01-01T00:00:00Z",
+            "amount": {"currency": "USD", "value": 3.00},
+            "payment_status": {"merchant_confirmation_id": "test_coding_interview"},
+        }
+
+        # Turn 1: Share implementation (with payment)
         response1 = await send_a2a_message(
             agent_url="http://localhost:8001",
             text="Conduct interview",
@@ -173,11 +223,12 @@ class TestRemoteExpertIntegration:
                 "user_id": "test_user",
                 "session_id": session_id,
                 "canvas_content": code_content,
+                PAYMENT_RECEIPT_DATA_KEY: valid_payment_receipt,
             },
         )
         assert response1 is not None
         assert "message" in response1
-        logger.info("✅ Turn 1: Agent received code implementation")
+        logger.info("✅ Turn 1: Agent received code implementation (with payment)")
 
         # Turn 2: Discuss specific method
         response2 = await send_a2a_message(

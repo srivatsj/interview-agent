@@ -9,8 +9,8 @@ from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load environment variables (don't override existing env vars from tests)
+load_dotenv(override=False)
 
 logger = logging.getLogger(__name__)
 
