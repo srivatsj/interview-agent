@@ -98,9 +98,8 @@ async def confirm_company_selection(
         interview_name = f"{company.title()} {interview_type.replace('_', ' ')}"
         logger.info(f"✅ Payment auto-approved! Starting {interview_name} interview")
         return (
-            f"PAYMENT_SUCCESS: ${price:.2f} payment auto-approved in test mode. "
-            f"{interview_name} interview is ready. "
-            f"Announce success to user and begin intro phase."
+            f"Payment approved: ${price:.2f} for {interview_name} interview. "
+            f"Moving to intro phase."
         )
 
     # Setup confirmation flow
@@ -159,10 +158,7 @@ async def confirm_company_selection(
     except asyncio.TimeoutError:
         logger.warning("⏰ Payment confirmation timed out after 60 seconds")
         _cleanup_confirmation(tool_context, session, confirmation_id)
-        return (
-            "PAYMENT_TIMEOUT: User did not respond to payment confirmation in time. "
-            "Ask if they want to try again or choose a different option."
-        )
+        return "Payment timeout: User did not respond to payment confirmation in time."
 
     # Get user decision
     approved = response_data.get("approved", False)
@@ -172,9 +168,8 @@ async def confirm_company_selection(
     if not approved:
         logger.info("❌ Payment declined by user")
         return (
-            f"PAYMENT_DECLINED: User canceled payment for "
-            f"{company.title()} {interview_type.replace('_', ' ')} interview. "
-            f"Ask if they want to try a different option or end the session."
+            f"Payment declined: User canceled payment for "
+            f"{company.title()} {interview_type.replace('_', ' ')} interview."
         )
 
     # AP2 Flow: User approved, now process payment
@@ -195,9 +190,7 @@ async def confirm_company_selection(
     )
     if error:
         logger.error(f"💳 Payment processing failed: {error}")
-        return (
-            f"PAYMENT_FAILED: {error} Ask user if they want to retry or choose a different option."
-        )
+        return f"Payment failed: {error}"
 
     # Store payment proof and routing decision
     tool_context.state["payment_proof"] = payment_receipt
@@ -212,9 +205,8 @@ async def confirm_company_selection(
     interview_name = f"{company.title()} {interview_type.replace('_', ' ')}"
     logger.info(f"✅ Payment proof stored! Starting {interview_name} interview")
     return (
-        f"PAYMENT_SUCCESS: ${price:.2f} charged successfully. "
-        f"{interview_name} interview is ready. "
-        f"Announce success to user and transfer to coordinator to begin interview."
+        f"Payment successful: ${price:.2f} charged for {interview_name} interview. "
+        f"Moving to intro phase."
     )
 
 

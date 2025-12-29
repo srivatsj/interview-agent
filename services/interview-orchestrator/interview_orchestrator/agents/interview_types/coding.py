@@ -79,6 +79,9 @@ async def ask_remote_expert(query: str, tool_context: ToolContext) -> str:
             f"✅ Got response from remote expert ({len(response.get('message', ''))} chars)"
         )
 
+        # Mark remote session as initialized after first successful call
+        tool_context.state["remote_session_initialized"] = True
+
         return response.get("message", "")
 
     except Exception as e:

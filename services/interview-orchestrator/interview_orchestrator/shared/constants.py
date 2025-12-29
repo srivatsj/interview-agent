@@ -34,4 +34,5 @@ def get_gemini_model() -> Gemini:
     else:
         # Dev/Test: standard Live API model (supports TEXT modality)
         # Use a model that doesn't trigger automatic audio transcription
+        # MUST use -live- version for bidiGenerateContent (WebSocket streaming)
         return Gemini(model="gemini-2.0-flash-live-001")

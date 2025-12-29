@@ -22,6 +22,16 @@ def save_candidate_info(
 ) -> str:
     """Save candidate background information and transition to interview phase.
 
+    CRITICAL: Call this tool IMMEDIATELY when you have collected ALL 4 pieces:
+    1. name - The candidate's full name
+    2. years_experience - Years of professional experience (as integer)
+    3. domain - Primary domain expertise (e.g., "distributed systems", "backend")
+    4. projects - Notable projects they've worked on
+
+    After collecting this information through conversation, call this tool to
+    save it and automatically transition to the interview phase. Do NOT wait
+    for the candidate to say they're ready. Call as soon as you have all 4 pieces.
+
     Args:
         name: Candidate's full name
         years_experience: Years of professional experience
@@ -42,11 +52,22 @@ def save_candidate_info(
     tool_context.state["candidate_info"] = candidate_info.model_dump()
     tool_context.state["interview_phase"] = "interview"
 
+    # Set default interview question based on interview type
+    routing = tool_context.state.get("routing_decision", {})
+    interview_type = routing.get("interview_type", "system_design")
+
+    if interview_type == "system_design":
+        tool_context.state["interview_question"] = "Design a URL shortening service (like bit.ly)"
+    elif interview_type == "coding":
+        tool_context.state["interview_question"] = "Implement a function to find the longest substring without repeating characters"
+    else:
+        tool_context.state["interview_question"] = "Technical interview question"
+
     logger.info(f"Candidate info saved: {name}, transitioning to interview phase")
 
     return (
-        f"Candidate info saved successfully. "
-        f"IMPORTANT: Transfer to interview_coordinator immediately so it can route to the interview agent."
+        f"Candidate info saved: {name}, {years_experience} years experience "
+        f"in {domain}. Moving to interview phase."
     )
 
 

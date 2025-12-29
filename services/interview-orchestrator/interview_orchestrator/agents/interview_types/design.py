@@ -18,15 +18,25 @@ logger = logging.getLogger(__name__)
 async def ask_remote_expert(query: str, tool_context: ToolContext) -> str:
     """Get feedback from company-specific remote expert agent.
 
-    Updated to work with new Google agent custom executor pattern.
-    Maintains conversation state via context_id for multi-turn.
+    CRITICAL: Use this tool for ALL technical questions and design feedback.
+
+    When to call this tool:
+    - Candidate presents their design or architecture
+    - Candidate asks technical questions about the system
+    - You need company-specific guidance or recommendations
+    - Discussing trade-offs, scalability, or technical decisions
+
+    DO NOT try to answer technical questions yourself. ALWAYS use this tool
+    to get expert feedback from the company-specific remote agent. This ensures
+    the interview reflects the company's actual technical standards and culture.
 
     Args:
-        query: Question or design problem to get feedback on
+        query: Question or design problem to get feedback on (e.g., candidate's
+               architecture description, specific technical question)
         tool_context: Tool execution context
 
     Returns:
-        Expert feedback from remote agent
+        Expert feedback from remote agent (present this naturally to candidate)
     """
     routing = tool_context.state.get("routing_decision", {})
     company = routing.get("company")
@@ -78,6 +88,9 @@ async def ask_remote_expert(query: str, tool_context: ToolContext) -> str:
         logger.info(
             f"✅ Got response from remote expert ({len(response.get('message', ''))} chars)"
         )
+
+        # Mark remote session as initialized after first successful call
+        tool_context.state["remote_session_initialized"] = True
 
         return response.get("message", "")
 
