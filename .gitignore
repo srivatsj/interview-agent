@@ -29,7 +29,6 @@ samples/
 .claude/skills/*/docs/
 
 # Test services
-services/orchestrator2/
 services/test_remote/
 services/test_remote_uber/
 
